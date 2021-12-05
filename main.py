@@ -3,10 +3,12 @@ from asyncio import sleep
 
 import config
 from bilibilibet_parser import parse_bbb
+from gelbooru_parser import parse_gelbooru
 from jigex_parser import parse_jigex
 
 from pixiv_parser import parse_pixiv
 from twitter_parser import parse_twitter
+from yandere_parser import parse_yandere
 
 
 async def downloader(url: str, save_img_index_tp: tuple):
@@ -19,6 +21,10 @@ async def downloader(url: str, save_img_index_tp: tuple):
             await parse_bbb(url)
         elif url.startswith("https://jigex.com"):
             await parse_jigex(url)
+        elif url.startswith("https://gelbooru.com"):
+            await parse_gelbooru(url)
+        elif url.startswith("https://yande.re"):
+            await parse_yandere(url)
         else:
             print(url, "no support")
     except Exception as e:
