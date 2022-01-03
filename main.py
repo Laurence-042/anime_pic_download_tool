@@ -1,8 +1,10 @@
 import asyncio
+import logging
 from asyncio import sleep
 
 import config
 from bilibilibet_parser import parse_bbb
+from danbooru_parser import parse_danbooru
 from gelbooru_parser import parse_gelbooru
 from jigex_parser import parse_jigex
 
@@ -25,10 +27,12 @@ async def downloader(url: str, save_img_index_tp: tuple):
             await parse_gelbooru(url)
         elif url.startswith("https://yande.re"):
             await parse_yandere(url)
+        elif url.startswith("https://danbooru.donmai.us"):
+            await parse_danbooru(url)
         else:
             print(url, "no support")
     except Exception as e:
-        print(e)
+        logging.exception(e)
 
 
 async def wait_loop_end():
@@ -49,7 +53,7 @@ if __name__ == '__main__':
     # with open("input.txt", "r", encoding="utf8") as f:
     #     raw_in = f.read()
     # in_lines = raw_in.splitlines(keepends=False)
-    raw_in = filter(lambda x: not x.startswith("#"), in_lines)
+    raw_in = filter(lambda x: x.startswith("http"), in_lines)
     raw_in = map(lambda x: x.split(" ", 1), raw_in)
     raw_in = map(lambda x: (x[0], tuple(map(int, x[1].split()))) if len(x) > 1 else (x[0], None), raw_in)
     url_ls = list(raw_in)
