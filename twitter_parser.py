@@ -57,7 +57,7 @@ async def parse_twitter(url, save_img_index_ls=None):
     for save_img_index, data in raw_target_media_data_ls:
         if data['type'] == "photo":
             download_entry_ls.append(extract_pic_download_entry(data, save_img_index,post_author,post_code))
-        elif data['type'] == "video":
+        elif data['type'] == "video" or data['type'] == "animated_gif":
             download_entry_ls.append(extract_video_download_entry(data, save_img_index,post_author,post_code))
         else:
             print(f"unknown type {data['type']} of url {url}")
