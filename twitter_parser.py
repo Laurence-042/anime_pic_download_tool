@@ -50,7 +50,7 @@ async def parse_twitter(url, save_img_index_ls=None):
     await page.close()
     print(f"parsed {url}")
 
-    raw_data_pack = core_data['data']['threaded_conversation_with_injections']['instructions'][0]['entries']
+    raw_data_pack = core_data['data']['threaded_conversation_with_injections_v2']['instructions'][0]['entries']
     raw_data_pack = list(
         filter(lambda x: x['entryId'] == f"tweet-{post_code}", raw_data_pack))[0]
 

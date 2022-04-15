@@ -4,11 +4,8 @@ import sys
 from asyncio import sleep
 
 import config
-from bilibilibet_parser import parse_bbb
 from danbooru_parser import parse_danbooru
 from gelbooru_parser import parse_gelbooru
-from jigex_parser import parse_jigex
-
 from pixiv_parser import parse_pixiv
 from twitter_parser import parse_twitter
 from yandere_parser import parse_yandere
@@ -20,10 +17,6 @@ async def downloader(url: str, save_img_index_tp: tuple):
             await parse_pixiv(url, save_img_index_tp)
         elif url.startswith("https://twitter.com"):
             await parse_twitter(url.split("?", 1)[0], save_img_index_tp)
-        elif url.startswith("https://bilibili.bet"):
-            await parse_bbb(url)
-        elif url.startswith("https://jigex.com"):
-            await parse_jigex(url)
         elif url.startswith("https://gelbooru.com"):
             await parse_gelbooru(url)
         elif url.startswith("https://yande.re"):
@@ -56,13 +49,13 @@ def get_input_from_cli():
 
 
 def get_input_from_file(file_name):
-    with open(file_name, "r", "utf8") as f:
+    with open(file_name, "r", encoding="utf8") as f:
         return f.readlines()
 
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
-        in_lines = get_input_from_file(file_name)
+        in_lines = get_input_from_file(sys.argv[1])
     else:
         in_lines = get_input_from_cli()
 
