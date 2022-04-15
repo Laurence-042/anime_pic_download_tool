@@ -4,13 +4,14 @@ import aiohttp
 from bs4 import BeautifulSoup, NavigableString
 
 from utils import Downloader, DownloadDataEntry
+from config import PROXY
 
 
 async def parse_gelbooru(url):
     print(f"parsing {url}")
 
     async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
+        async with session.get(url, proxy=PROXY) as response:
             if response.status != 200:
                 raise Exception(url + " " + str(response.status))
             html = await response.text()
@@ -50,7 +51,8 @@ async def parse_gelbooru(url):
     tags_name_ls = ["Artist", "Copyright", "Metadata", "Tag"]
     tags = {tag_name: dict(map(tag_attr_element_parser, raw_post_attr_elements_dict[
         tag_name] if tag_name in raw_post_attr_elements_dict else [])) for tag_name in tags_name_ls}
-    statistics = dict(map(statistics_element_parser, raw_post_attr_elements_dict["Statistics"]))
+    statistics = dict(map(statistics_element_parser,
+                      raw_post_attr_elements_dict["Statistics"]))
     media_url = list(filter(lambda x: x[0].text == "Original image", raw_post_attr_elements_dict["Options"]))[0][0] \
         .attrs["href"]
 
@@ -60,18 +62,21 @@ async def parse_gelbooru(url):
         "media_url": media_url
     }
 
-    artist = list(tags["Artist"].keys())[0] if len(post_attr_elements_dict["tags"]["Artist"].keys()) != 0 else "unknown"
+    artist = list(tags["Artist"].keys())[0] if len(
+        post_attr_elements_dict["tags"]["Artist"].keys()) != 0 else "unknown"
     source = post_attr_elements_dict["statistics"]["Source"] \
         if "Source" in post_attr_elements_dict["statistics"] else "unknown"
     illust_code = post_attr_elements_dict["statistics"]["Id"]
     media_url = post_attr_elements_dict["media_url"]
     media_format = media_url.rsplit(".", 1)[-1]
 
-    source = source.replace("https://", "").replace("http://", "").replace("www.", "")
+    source = source.replace(
+        "https://", "").replace("http://", "").replace("www.", "")
     if source.startswith("pixiv.net"):
         source = "pixiv_" + source.rsplit("/", 1)[-1]
     elif source.startswith("twitter.com"):
-        twitter_username, twitter_post_id = re.search(r"twitter.com/([^/]+)/status/(\d+)", source).groups()
+        twitter_username, twitter_post_id = re.search(
+            r"twitter.com/([^/]+)/status/(\d+)", source).groups()
         source = f"twitter_{twitter_username}_{twitter_post_id}"
     else:
         source = source.replace("/", "_")

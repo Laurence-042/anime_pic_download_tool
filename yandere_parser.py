@@ -1,16 +1,18 @@
 import re
+from weakref import proxy
 
 import aiohttp
 from bs4 import BeautifulSoup, NavigableString
 
 from utils import Downloader, DownloadDataEntry
+from config import PROXY
 
 
 async def parse_yandere(url):
     print(f"parsing {url}")
 
     async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
+        async with session.get(url, proxy=PROXY) as response:
             if response.status != 200:
                 raise Exception(url + " " + str(response.status))
             html = await response.text()
@@ -23,8 +25,10 @@ async def parse_yandere(url):
     high_res_link = soup.find("a", id="highres")
 
     artist_tag_elements = tag_sidebar.findAll("li", class_="tag-type-artist")
-    copyright_tag_elements = tag_sidebar.findAll("li", class_="tag-type-copyright")
-    character_tag_elements = tag_sidebar.findAll("li", class_="tag-type-character")
+    copyright_tag_elements = tag_sidebar.findAll(
+        "li", class_="tag-type-copyright")
+    character_tag_elements = tag_sidebar.findAll(
+        "li", class_="tag-type-character")
     general_tag_elements = tag_sidebar.findAll("li", class_="tag-type-general")
 
     stats_elements = stats_sidebar.findAll("li")
@@ -43,8 +47,10 @@ async def parse_yandere(url):
         return k, v
 
     tags_name_ls = ["Artist", "Copyright", "Tag"]
-    tags_ls = [artist_tag_elements, copyright_tag_elements, character_tag_elements, general_tag_elements]
-    tags = {tag_name: dict(map(tag_attr_element_parser, tag_elements)) for tag_name, tag_elements in zip(tags_name_ls,tags_ls)}
+    tags_ls = [artist_tag_elements, copyright_tag_elements,
+               character_tag_elements, general_tag_elements]
+    tags = {tag_name: dict(map(tag_attr_element_parser, tag_elements))
+            for tag_name, tag_elements in zip(tags_name_ls, tags_ls)}
     statistics = dict(map(statistics_element_parser, stats_elements))
     media_url = high_res_link.attrs["href"]
 
@@ -54,18 +60,21 @@ async def parse_yandere(url):
         "media_url": media_url
     }
 
-    artist = list(tags["Artist"].keys())[0] if len(post_attr_elements_dict["tags"]["Artist"].keys()) != 0 else "unknown"
+    artist = list(tags["Artist"].keys())[0] if len(
+        post_attr_elements_dict["tags"]["Artist"].keys()) != 0 else "unknown"
     source = post_attr_elements_dict["statistics"]["Source"] \
         if "Source" in post_attr_elements_dict["statistics"] else "unknown"
     illust_code = post_attr_elements_dict["statistics"]["Id"]
     media_url = post_attr_elements_dict["media_url"]
     media_format = media_url.rsplit(".", 1)[-1]
 
-    source = source.replace("https://", "").replace("http://", "").replace("www.", "")
+    source = source.replace(
+        "https://", "").replace("http://", "").replace("www.", "")
     if source.startswith("pixiv.net"):
         source = "pixiv_" + source.rsplit("/", 1)[-1]
     elif source.startswith("twitter.com"):
-        twitter_username, twitter_post_id = re.search(r"twitter.com/([^/]+)/status/(\d+)", source).groups()
+        twitter_username, twitter_post_id = re.search(
+            r"twitter.com/([^/]+)/status/(\d+)", source).groups()
         source = f"twitter_{twitter_username}_{twitter_post_id}"
     else:
         source = source.replace("/", "_")

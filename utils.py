@@ -5,7 +5,7 @@ from typing import List, Dict
 
 import aiohttp
 
-from config import DEFAULT_DOWNLOAD_PATH, DOWNLOAD_THREAD_NUM, COROUTINE_THREAD_LOOP, SLEEP_SECONDS_BETWEEN_BATCH
+from config import DEFAULT_DOWNLOAD_PATH, DOWNLOAD_THREAD_NUM, COROUTINE_THREAD_LOOP, SLEEP_SECONDS_BETWEEN_BATCH, PROXY
 
 
 class DownloadDataEntry:
@@ -55,21 +55,25 @@ class Downloader:
             requests_ls = requests_ls[self.thread_num:]
             for request in request_batch:
                 # print(request, tag)
-                asyncio.run_coroutine_threadsafe(self.download_pic(request, tag, header), COROUTINE_THREAD_LOOP)
+                asyncio.run_coroutine_threadsafe(self.download_pic(
+                    request, tag, header), COROUTINE_THREAD_LOOP)
             await sleep(SLEEP_SECONDS_BETWEEN_BATCH)
 
     async def download_pic(self, download_request: DownloadDataEntry, tag: str, header: Dict[str, str]):
         if os.path.exists(download_request.file_path) and os.path.getsize(download_request.file_path) > 0:
-            self.tag_counter_dict[tag] = (self.tag_counter_dict[tag][0] + 1, self.tag_counter_dict[tag][1])
+            self.tag_counter_dict[tag] = (
+                self.tag_counter_dict[tag][0] + 1, self.tag_counter_dict[tag][1])
             if self.tag_counter_dict[tag][0] == self.tag_counter_dict[tag][1]:
                 del self.tag_counter_dict[tag]
-            print(f"{download_request.url} exist tag:{tag} {self.tag_counter_dict[tag][0]}/{self.tag_counter_dict[tag][1]}")
+            print(
+                f"{download_request.url} exist tag:{tag} {self.tag_counter_dict[tag][0]}/{self.tag_counter_dict[tag][1]}")
             return
 
         async with aiohttp.ClientSession(headers=header) as session:
-            response = await session.get(download_request.url)
+            response = await session.get(download_request.url, proxy=PROXY)
             if response.status != 200:
-                raise Exception(download_request.url + " " + str(response.status))
+                raise Exception(download_request.url +
+                                " " + str(response.status))
             content = await response.read()
 
         with open(download_request.file_path, 'wb') as f:
@@ -81,4 +85,5 @@ class Downloader:
             del self.tag_counter_dict[tag]
         else:
             self.tag_counter_dict[tag] = new_download_status
-        print(f"{download_request.url} ok tag:{tag} {new_download_status[0]}/{new_download_status[1]}")
+        print(
+            f"{download_request.url} ok tag:{tag} {new_download_status[0]}/{new_download_status[1]}")

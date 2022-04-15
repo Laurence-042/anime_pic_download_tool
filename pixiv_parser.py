@@ -1,19 +1,22 @@
 import json
 import re
+from weakref import proxy
 
 import aiohttp
 
 from utils import Downloader, DownloadDataEntry
+from config import PROXY
 
 
 async def parse_pixiv(url, save_img_index_ls=None):
     print(f"parsing {url}")
     if save_img_index_ls is None:
         save_img_index_ls = [0]
-    illust_code = re.search(r"https?://www.pixiv.net/artworks/(\d+)", url).group(1)
+    illust_code = re.search(
+        r"https?://www.pixiv.net/artworks/(\d+)", url).group(1)
 
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"https://www.pixiv.net/ajax/illust/{illust_code}?lang=zh") as response:
+        async with session.get(f"https://www.pixiv.net/ajax/illust/{illust_code}?lang=zh", proxy=PROXY) as response:
             if response.status != 200:
                 raise Exception(url + " " + str(response.status))
             html = await response.text()
@@ -24,8 +27,9 @@ async def parse_pixiv(url, save_img_index_ls=None):
 
     header = {"Referer": "https://www.pixiv.net/"}
     download_entry_ls = []
-    for illust_index, illust_code_in_page in enumerate(save_img_index_ls):
-        image_url = illust_url_prefix + str(illust_code_in_page) + illust_url_suffix
+    for illust_code_in_page in save_img_index_ls:
+        image_url = illust_url_prefix + \
+            str(illust_code_in_page) + illust_url_suffix
         file_format = image_url.rsplit(".", 1)[1]
         download_entry_ls.append(
             DownloadDataEntry(image_url, f"pixiv_{illust_code}_p{illust_code_in_page}.{file_format}"))

@@ -16,3 +16,4 @@ COROUTINE_THREAD = Thread(target=start_loop, args=(new_loop,))
 COROUTINE_THREAD.start()
 
 COROUTINE_THREAD_LOOP = new_loop
+PROXY = 'http://127.0.0.1:41091'

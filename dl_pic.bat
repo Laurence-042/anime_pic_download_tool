@@ -1,3 +1,3 @@
-python C:\Users\Laurence_042\Documents\workspace\python\anime_pic_downloader\main.py
+python C:\Users\Laure\Documents\workspace\python\anime_pic_downloader\main.py
 pause
-start explorer "C:\Users\Laurence_042\Documents\workspace\python\anime_pic_downloader\download"
+start explorer "C:\Users\Laure\Documents\workspace\python\anime_pic_downloader\download"
