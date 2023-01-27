@@ -6,11 +6,12 @@ from asyncio import sleep
 import config
 from danbooru_parser import parse_danbooru
 from gelbooru_parser import parse_gelbooru
+from parse_exception import ParseException
 from pixiv_parser import parse_pixiv
 from twitter_parser import parse_twitter
 from yandere_parser import parse_yandere
 
-
+_failed = []
 async def downloader(url: str, save_img_index_tp: tuple):
     try:
         if url.startswith("https://www.pixiv.net"):
@@ -24,9 +25,14 @@ async def downloader(url: str, save_img_index_tp: tuple):
         elif url.startswith("https://danbooru.donmai.us"):
             await parse_danbooru(url)
         else:
-            print(url, "no support")
-    except Exception as e:
+            print(f"\033[31mno support\033[0m:{url}")
+    except ParseException as e:
         logging.exception(e)
+        _failed.append(url)
+    except Exception as e:
+        print(f"\033[31mException raised while parsing\033[0m:{url}")
+        logging.exception(e)
+        _failed.append(url)
 
 
 async def wait_loop_end():
@@ -72,3 +78,8 @@ if __name__ == '__main__':
     new_loop.run_until_complete(wait_loop_end())
 
     config.COROUTINE_THREAD_LOOP.call_soon_threadsafe(config.COROUTINE_THREAD_LOOP.stop)
+
+    if _failed:
+        print("=======FAILED==========")
+        for url in _failed:
+            print(url)

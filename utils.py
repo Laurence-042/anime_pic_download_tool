@@ -4,6 +4,7 @@ from asyncio import sleep
 from typing import List, Dict
 
 import aiohttp
+from pyppeteer.network_manager import Response, Request
 
 from config import DEFAULT_DOWNLOAD_PATH, DOWNLOAD_THREAD_NUM, COROUTINE_THREAD_LOOP, SLEEP_SECONDS_BETWEEN_BATCH, PROXY
 
@@ -87,3 +88,25 @@ class Downloader:
             self.tag_counter_dict[tag] = new_download_status
         print(
             f"{download_request.url} ok tag:{tag} {new_download_status[0]}/{new_download_status[1]}")
+
+async def pyppeteer_request_debug(request:Request):
+    # Response logic goes here
+    print("Request URL:", request.url)
+    print("Method:", request.method)
+    print("Request headers:", request.headers)
+    # print("Request Headers:", response.request.headers)
+    # print("Response status:", response.status)
+    # if("json" in response.url):
+    #     print("Response body:", await response.text())
+    print("======")
+
+async def pyppeteer_response_debug(response:Response):
+    # Response logic goes here
+    print("Response URL:", response.url)
+    print("Method:", response.request.method)
+    print("Response headers:", response.headers)
+    # print("Request Headers:", response.request.headers)
+    # print("Response status:", response.status)
+    # if("json" in response.url):
+    #     print("Response body:", await response.text())
+    print("======")
