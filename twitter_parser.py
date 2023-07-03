@@ -1,9 +1,13 @@
 import asyncio
 import re
+import time
+from http.cookiejar import Cookie
+from typing import Dict
 from weakref import proxy
 
 from pyppeteer import launch
 from pyppeteer.network_manager import Response
+import browser_cookie3
 
 from parse_exception import ParseException
 from utils import Downloader, DownloadDataEntry, pyppeteer_request_debug, pyppeteer_response_debug
@@ -35,6 +39,24 @@ def get_file_name_without_suffix(save_index_in_post, post_author, post_code):
     return f"twitter_{post_author}_{post_code}_{save_index_in_post}"
 
 
+def cookie_to_pyppeteer_ver(cookie: Cookie) -> Dict:
+    return {
+        'name': cookie.name,
+        'value': cookie.value,
+        'domain': cookie.domain,
+        'path': cookie.path,
+        'expires': time.time() + 3600,
+        'size': len(cookie.name) + len(cookie.value),
+        'httpOnly': True,
+        'secure': True,
+        'session': False,
+        'sameSite': 'Lax'
+    }
+
+def response_filter(response:Response)->bool:
+    return response.url.startswith("https://twitter.com/i/api/graphql/") and "TweetDetail" in response.url and response.request.method == "GET"
+
+
 async def parse_twitter(url, save_img_index_ls=None):
     print(f"parsing {url}")
     if save_img_index_ls is None:
@@ -46,9 +68,9 @@ async def parse_twitter(url, save_img_index_ls=None):
 
     # print("waiting launch")
     if PROXY:
-        browser = await launch({'args': [f'--proxy-server={PROXY}'], 'headless': True})
+        browser = await launch({'args': [f'--proxy-server={PROXY}'], 'headless': False})
     else:
-        browser = await launch({'headless': True})
+        browser = await launch({'headless': False})
     # browser = await launch(
     #     devtools=True,
     #     headless=False,
@@ -57,16 +79,23 @@ async def parse_twitter(url, save_img_index_ls=None):
     # )
     # print("waiting newPage")
     page = await browser.newPage()
-    # print("waiting goto")
-    # page.on('request', lambda request: asyncio.ensure_future(pyppeteer_request_debug(request)))
-    # page.on('response', lambda response: asyncio.ensure_future(pyppeteer_response_debug(response)))
+    # await page.goto('https://github.com/login')
+    # await page.type('#login_field', 'laurence042')  # your user name here
+    # await page.type('#password', 'Un4080210185')  # your password here
+    # navPromise = asyncio.ensure_future(page.waitForNavigation())
+    # await page.click('input[type=submit]')
+    # await navPromise
+    # cookies = await page.cookies()
+    # await browser.close()
 
     # print("waiting Response")
+    edge_cookies = browser_cookie3.edge()._cookies
+    twitter_cookies = list(map(cookie_to_pyppeteer_ver, edge_cookies[".twitter.com"]["/"].values()))
+    await page.setCookie(*twitter_cookies)
 
     # graphql api use 'option' as request method first, then use 'get' method to get response.
     # capture the 'get' response as data
-    response, _ = await asyncio.gather(page.waitForResponse(
-        lambda res: res.url.startswith("https://api.twitter.com/graphql") and res.request.method == "GET"),
+    response, _ = await asyncio.gather(page.waitForResponse(response_filter),
         page.goto(url))
     core_data = await response.json()
     print(f"parsed {url}")
