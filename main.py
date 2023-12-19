@@ -18,6 +18,8 @@ async def downloader(url: str, save_img_index_tp: tuple):
             await parse_pixiv(url, save_img_index_tp)
         elif url.startswith("https://twitter.com"):
             await parse_twitter(url.split("?", 1)[0], save_img_index_tp)
+        elif url.startswith("https://x.com"):
+            await parse_twitter(url.split("?", 1)[0], save_img_index_tp)
         elif url.startswith("https://gelbooru.com"):
             await parse_gelbooru(url)
         elif url.startswith("https://yande.re"):

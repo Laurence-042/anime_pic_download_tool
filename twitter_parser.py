@@ -7,7 +7,7 @@ from weakref import proxy
 
 from pyppeteer import launch
 from pyppeteer.network_manager import Response
-import browser_cookie3
+import rookiepy
 
 from parse_exception import ParseException
 from utils import Downloader, DownloadDataEntry, pyppeteer_request_debug, pyppeteer_response_debug
@@ -39,22 +39,25 @@ def get_file_name_without_suffix(save_index_in_post, post_author, post_code):
     return f"twitter_{post_author}_{post_code}_{save_index_in_post}"
 
 
-def cookie_to_pyppeteer_ver(cookie: Cookie) -> Dict:
+def cookie_to_pyppeteer_ver(cookie: dict) -> Dict:
+    # return cookie
     return {
-        'name': cookie.name,
-        'value': cookie.value,
-        'domain': cookie.domain,
-        'path': cookie.path,
+        'name': cookie.get('name'),
+        'value': cookie.get('value'),
+        'domain': cookie.get('domain'),
+        'path': cookie.get('path'),
         'expires': time.time() + 3600,
-        'size': len(cookie.name) + len(cookie.value),
+        'size': len(cookie.get('name')) + len(cookie.get('value')),
         'httpOnly': True,
         'secure': True,
         'session': False,
         'sameSite': 'Lax'
     }
 
-def response_filter(response:Response)->bool:
-    return response.url.startswith("https://twitter.com/i/api/graphql/") and "TweetDetail" in response.url and response.request.method == "GET"
+
+def response_filter(response: Response) -> bool:
+    return response.url.startswith(
+        "https://api.twitter.com/graphql/") and "TweetResultByRestId" in response.url and response.request.method == "GET"
 
 
 async def parse_twitter(url, save_img_index_ls=None):
@@ -62,15 +65,15 @@ async def parse_twitter(url, save_img_index_ls=None):
     if save_img_index_ls is None:
         save_img_index_ls = [1]
     post_url_search_res = re.search(
-        r"https://twitter.com/([^/]+)/status/(\d+)", url)
+        r"https://[^.]+.com/([^/]+)/status/(\d+)", url)
     post_author = post_url_search_res.group(1)
     post_code = post_url_search_res.group(2)
 
     # print("waiting launch")
     if PROXY:
-        browser = await launch({'args': [f'--proxy-server={PROXY}'], 'headless': False})
+        browser = await launch({'args': [f'--proxy-server={PROXY}', '--ignore-certificate-errors'], 'headless': False})
     else:
-        browser = await launch({'headless': False})
+        browser = await launch({'args': ['--ignore-certificate-errors'],'headless': False})
     # browser = await launch(
     #     devtools=True,
     #     headless=False,
@@ -89,24 +92,20 @@ async def parse_twitter(url, save_img_index_ls=None):
     # await browser.close()
 
     # print("waiting Response")
-    edge_cookies = browser_cookie3.edge()._cookies
-    twitter_cookies = list(map(cookie_to_pyppeteer_ver, edge_cookies[".twitter.com"]["/"].values()))
+    edge_cookies = rookiepy.edge()
+    twitter_cookies = list(map(cookie_to_pyppeteer_ver, filter(lambda x: "twitter" in x['domain'] and "/" == x['path'], edge_cookies)))
     await page.setCookie(*twitter_cookies)
 
     # graphql api use 'option' as request method first, then use 'get' method to get response.
     # capture the 'get' response as data
     response, _ = await asyncio.gather(page.waitForResponse(response_filter),
-        page.goto(url))
+                                       page.goto(url))
     core_data = await response.json()
     print(f"parsed {url}")
     await page.close()
 
-    raw_data_pack = core_data['data']['threaded_conversation_with_injections_v2']['instructions'][0]['entries']
-    raw_data_pack = list(
-        filter(lambda x: x['entryId'] == f"tweet-{post_code}", raw_data_pack))[0]
-
     try:
-        raw_data_pack = raw_data_pack['content']['itemContent']['tweet_results']['result']['legacy']
+        raw_data_pack = core_data['data']['tweetResult']['result']['legacy']
     except KeyError:
         raise ParseException("Adult content, login needed", url,
                              [get_file_name_without_suffix(save_index_in_post, post_author, post_code) for
