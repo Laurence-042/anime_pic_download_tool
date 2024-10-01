@@ -1,14 +1,16 @@
 import asyncio
+import pprint
 import re
 import time
 from http.cookiejar import Cookie
-from typing import Dict
+from typing import Dict, List
 from weakref import proxy
 
 from pyppeteer import launch
 from pyppeteer.network_manager import Response
-import rookiepy
+import browsercookie
 
+from cookie_parser import parse_cookie_from_export_cookie_file_plugin
 from parse_exception import ParseException
 from utils import Downloader, DownloadDataEntry, pyppeteer_request_debug, pyppeteer_response_debug
 from config import PROXY
@@ -46,19 +48,16 @@ def cookie_to_pyppeteer_ver(cookie: dict) -> Dict:
         'value': cookie.get('value'),
         'domain': cookie.get('domain'),
         'path': cookie.get('path'),
-        'expires': time.time() + 3600,
-        'size': len(cookie.get('name')) + len(cookie.get('value')),
+        'expires': int(time.time() + 3600),
         'httpOnly': True,
         'secure': True,
-        'session': False,
         'sameSite': 'Lax'
     }
 
 
 def response_filter(response: Response) -> bool:
-    return response.url.startswith(
-        "https://api.twitter.com/graphql/") and "TweetResultByRestId" in response.url and response.request.method == "GET"
-
+    # print(f"{response.request.method} {response.status} {response.url}")
+    return "TweetDetail" in response.url and response.request.method == "GET" and response.status==200
 
 async def parse_twitter(url, save_img_index_ls=None):
     print(f"parsing {url}")
@@ -73,7 +72,7 @@ async def parse_twitter(url, save_img_index_ls=None):
     if PROXY:
         browser = await launch({'args': [f'--proxy-server={PROXY}', '--ignore-certificate-errors'], 'headless': False})
     else:
-        browser = await launch({'args': ['--ignore-certificate-errors'],'headless': False})
+        browser = await launch({'args': ['--ignore-certificate-errors'], 'headless': False})
     # browser = await launch(
     #     devtools=True,
     #     headless=False,
@@ -92,28 +91,39 @@ async def parse_twitter(url, save_img_index_ls=None):
     # await browser.close()
 
     # print("waiting Response")
-    edge_cookies = rookiepy.edge()
-    twitter_cookies = list(map(cookie_to_pyppeteer_ver, filter(lambda x: "twitter" in x['domain'] and "/" == x['path'], edge_cookies)))
+    # edge_cookies = browsercookie.edge()
+    edge_cookies = parse_cookie_from_export_cookie_file_plugin()
+    twitter_cookies = list(
+        map(cookie_to_pyppeteer_ver, edge_cookies))
     await page.setCookie(*twitter_cookies)
 
     # graphql api use 'option' as request method first, then use 'get' method to get response.
     # capture the 'get' response as data
     response, _ = await asyncio.gather(page.waitForResponse(response_filter),
                                        page.goto(url))
-    core_data = await response.json()
+    response_data:dict = await response.json()
     print(f"parsed {url}")
     await page.close()
 
+    core_data:dict = response_data['data']
+
     try:
-        raw_data_pack = core_data['data']['tweetResult']['result']['legacy']
-    except KeyError:
+        if "tweetResult" in core_data:
+            core_data = core_data['tweetResult']
+        else:
+            core_data: list = core_data['threaded_conversation_with_injections_v2']['instructions']
+            core_data = next(item for item in core_data if item["type"] == "TimelineAddEntries")['entries']
+            core_data: dict = next(item for item in core_data if item['entryId'].startswith("tweet-"))[
+                'content']['itemContent']['tweet_results']
+        raw_data_pack = core_data['result']['legacy']
+    except KeyError as e:
         raise ParseException("Adult content, login needed", url,
                              [get_file_name_without_suffix(save_index_in_post, post_author, post_code) for
                               save_index_in_post in save_img_index_ls])
 
-    raw_data_pack = raw_data_pack['extended_entities'] if 'extended_entities' in raw_data_pack else raw_data_pack[
+    raw_data_pack: dict = raw_data_pack['extended_entities'] if 'extended_entities' in raw_data_pack else raw_data_pack[
         'entities']
-    raw_data_pack = raw_data_pack['media']
+    raw_data_pack: List[dict] = raw_data_pack['media']
 
     raw_target_media_data_ls = [(save_img_index, raw_data_pack[save_img_index - 1])
                                 for save_img_index in save_img_index_ls]
