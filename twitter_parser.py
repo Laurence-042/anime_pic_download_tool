@@ -1,14 +1,10 @@
 import asyncio
-import pprint
 import re
 import time
-from http.cookiejar import Cookie
 from typing import Dict, List
-from weakref import proxy
 
 from pyppeteer import launch
 from pyppeteer.network_manager import Response
-import browsercookie
 
 from cookie_parser import parse_cookie_from_export_cookie_file_plugin
 from parse_exception import ParseException
@@ -57,7 +53,9 @@ def cookie_to_pyppeteer_ver(cookie: dict) -> Dict:
 
 def response_filter(response: Response) -> bool:
     # print(f"{response.request.method} {response.status} {response.url}")
-    return "TweetDetail" in response.url and response.request.method == "GET" and response.status==200
+    if response.url.endswith(".js"):
+        return False
+    return ("TweetDetail" in response.url or "TweetResultByRestId" in response.url) and response.request.method == "GET" and response.status==200
 
 async def parse_twitter(url, save_img_index_ls=None):
     print(f"parsing {url}")

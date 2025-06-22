@@ -61,6 +61,7 @@ class Downloader:
             await sleep(SLEEP_SECONDS_BETWEEN_BATCH)
 
     async def download_pic(self, download_request: DownloadDataEntry, tag: str, header: Dict[str, str]):
+        print(f"Ready to download {download_request.url}")
         if os.path.exists(download_request.file_path) and os.path.getsize(download_request.file_path) > 0:
             self.tag_counter_dict[tag] = (
                 self.tag_counter_dict[tag][0] + 1, self.tag_counter_dict[tag][1])
@@ -73,6 +74,7 @@ class Downloader:
         async with aiohttp.ClientSession(headers=header) as session:
             response = await session.get(download_request.url, proxy=PROXY)
             if response.status != 200:
+                print(f"\033[31mFaild tp dpwnlaod \033[0m:{download_request.url}")
                 raise Exception(download_request.url +
                                 " " + str(response.status))
             content = await response.read()

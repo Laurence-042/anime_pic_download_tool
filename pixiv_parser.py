@@ -21,28 +21,27 @@ async def parse_pixiv(url, save_img_index_ls=None):
         r"https?://www.pixiv.net/artworks/(\d+)", url).group(1)
 
     async with aiohttp.ClientSession() as session:
-        url = f"https://www.pixiv.net/ajax/illust/{illust_code}?lang=zh"
+        url = f"https://www.pixiv.net/ajax/illust/{illust_code}/pages?lang=zh"
         async with session.get(url, proxy=PROXY,headers =PIXIV_HEADER) as response:
             if response.status != 200:
                 raise Exception(url + " " + str(response.status))
             html = await response.text()
             raw_data = json.loads(html)
-            first_illust_url = raw_data['body']['urls']['original']
+            illust_list = list(map(lambda x:x['urls']['original'],raw_data['body']))
     print(f"parsed {url}")
 
-    if not first_illust_url:
+    if not illust_list:
         raise ParseException("Adult content, login needed", url,
                              [get_file_name_without_suffix(illust_code, illust_code_in_page, 'png') for
                               illust_code_in_page in save_img_index_ls])
 
-    illust_url_prefix, illust_url_suffix = first_illust_url.rsplit("0", 1)
 
     header = {"Referer": "https://www.pixiv.net/"}
     download_entry_ls = []
-    for illust_code_in_page in save_img_index_ls:
-        image_url = illust_url_prefix + \
-                    str(illust_code_in_page) + illust_url_suffix
+    for (image_index, image_url) in enumerate(illust_list):
+        if save_img_index_ls and (image_index not in save_img_index_ls):
+            continue
         file_format = image_url.rsplit(".", 1)[1]
         download_entry_ls.append(
-            DownloadDataEntry(image_url, get_file_name_without_suffix(illust_code, illust_code_in_page, file_format)))
+            DownloadDataEntry(image_url, get_file_name_without_suffix(illust_code, image_index, file_format)))
     await Downloader.get_downloader().submit_download_requests(download_entry_ls, url, header=header)

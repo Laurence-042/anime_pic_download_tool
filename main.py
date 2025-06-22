@@ -70,7 +70,7 @@ if __name__ == '__main__':
     raw_in = filter(lambda x: x.startswith("http"), in_lines)
     raw_in = map(lambda x: x.strip(), raw_in)
     raw_in = map(lambda x: x.split(" ", 1), raw_in)
-    raw_in = map(lambda x: (x[0], tuple(map(int, x[1].split()))) if len(x) > 1 else (x[0], None), raw_in)
+    raw_in = map(lambda x: (x[0], tuple(map(int, x[1].split())) if x[1]!="all" else tuple()) if len(x) > 1 else (x[0], None), raw_in)
     url_ls = list(raw_in)
 
     new_loop = asyncio.new_event_loop()
