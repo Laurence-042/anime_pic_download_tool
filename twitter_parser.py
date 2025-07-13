@@ -113,7 +113,10 @@ async def parse_twitter(url, save_img_index_ls=None):
             core_data = next(item for item in core_data if item["type"] == "TimelineAddEntries")['entries']
             core_data: dict = next(item for item in core_data if item['entryId'].startswith("tweet-"))[
                 'content']['itemContent']['tweet_results']
-        raw_data_pack = core_data['result']['legacy']
+        core_data = core_data['result']
+        if "tweet" in core_data:
+            core_data = core_data["tweet"]
+        raw_data_pack = core_data['legacy']
     except KeyError as e:
         raise ParseException("Adult content, login needed", url,
                              [get_file_name_without_suffix(save_index_in_post, post_author, post_code) for
