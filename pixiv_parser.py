@@ -1,6 +1,6 @@
 import json
 import re
-from typing import List
+from typing import List, Tuple, Optional
 
 import aiohttp
 
@@ -13,18 +13,18 @@ def get_file_name_without_suffix(illust_code, illust_code_in_page, file_format):
     return f"pixiv_{illust_code}_p{illust_code_in_page}.{file_format}"
 
 
-async def _get_raw_file_urls(illust_code: str) -> List[str]:
+async def _get_raw_file_urls(illust_code: str) -> Tuple[List[str],Optional[str]]:
     async with aiohttp.ClientSession() as session:
         one_page_urls = await _get_one_page_urls(illust_code, session)
         if one_page_urls:
-            if 'ugoira' not in one_page_urls[0]:
-                return one_page_urls
-            else:
-                return one_page_urls + await _get_ugoira_urls(illust_code, session)
+            ugoira_url = None
+            if 'ugoira' in one_page_urls[0]:
+                ugoira_url = await _get_ugoira_url(illust_code, session)
+            return one_page_urls,ugoira_url
 
         _all_pages_urls = await _get_all_pages_urls(illust_code, session)
         if _all_pages_urls:
-            return _all_pages_urls
+            return _all_pages_urls, None
     raise ParseException("raw parse failed", illust_code,f"https://www.pixiv.net/ajax/illust/{illust_code}")
 
 
@@ -62,7 +62,7 @@ async def _get_all_pages_urls(illust_code: str, session: aiohttp.ClientSession) 
         rate_limiter.release(pages_url, semaphore)
 
 
-async def _get_ugoira_urls(illust_code: str, session: aiohttp.ClientSession) -> List[str]:
+async def _get_ugoira_url(illust_code: str, session: aiohttp.ClientSession) -> str:
     ugoira_meta_url = f"https://www.pixiv.net/ajax/illust/{illust_code}/ugoira_meta?lang=zh"
     rate_limiter = get_rate_limiter()
     semaphore = await rate_limiter.acquire(ugoira_meta_url)
@@ -76,7 +76,7 @@ async def _get_ugoira_urls(illust_code: str, session: aiohttp.ClientSession) -> 
             url = raw_data['body']['originalSrc']
             if not url:
                 raise ParseException("ugoira parse failed", ugoira_meta_url, html)
-            return [url]
+            return url
     finally:
         rate_limiter.release(ugoira_meta_url, semaphore)
 
@@ -88,7 +88,7 @@ async def parse_pixiv(url, save_img_index_ls=None):
     illust_code = re.search(
         r"https?://www.pixiv.net/artworks/(\d+)", url).group(1)
 
-    illust_list = await _get_raw_file_urls(illust_code)
+    illust_list,ugoira_url = await _get_raw_file_urls(illust_code)
 
     if not illust_list:
         raise ParseException("Adult content, login needed", url,
@@ -103,4 +103,7 @@ async def parse_pixiv(url, save_img_index_ls=None):
         file_format = image_url.rsplit(".", 1)[1]
         download_entry_ls.append(
             DownloadDataEntry(image_url, get_file_name_without_suffix(illust_code, image_index, file_format)))
+    if ugoira_url:
+        download_entry_ls.append(
+            DownloadDataEntry(ugoira_url, get_file_name_without_suffix(illust_code, 0, ugoira_url.rsplit(".", 1)[1])))
     await Downloader.get_downloader().submit_download_requests(download_entry_ls, url, header=header)
