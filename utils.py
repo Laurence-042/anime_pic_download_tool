@@ -116,6 +116,11 @@ class Downloader:
                 asyncio.run_coroutine_threadsafe(self.download_pic(
                     request, tag, header), COROUTINE_THREAD_LOOP)
             await sleep(SLEEP_SECONDS_BETWEEN_BATCH)
+    
+    async def wait_for_tag_completion(self, tag: str):
+        """Wait until all downloads for the given tag are complete."""
+        while self.tag_counter_dict.get(tag) is not None:
+            await sleep(0.5)
 
     async def download_pic(self, download_request: DownloadDataEntry, tag: str, header: Dict[str, str]):
         print(f"Ready to download {download_request.url}")
