@@ -1,12 +1,69 @@
 import asyncio
 import os
+import time
 from asyncio import sleep
 from typing import List, Dict
+from urllib.parse import urlparse
 
 import aiohttp
 from pyppeteer.network_manager import Response, Request
 
-from config import DEFAULT_DOWNLOAD_PATH, DOWNLOAD_THREAD_NUM, COROUTINE_THREAD_LOOP, SLEEP_SECONDS_BETWEEN_BATCH, PROXY
+from config import DEFAULT_DOWNLOAD_PATH, DOWNLOAD_THREAD_NUM, COROUTINE_THREAD_LOOP, SLEEP_SECONDS_BETWEEN_BATCH, PROXY, RATE_LIMITS
+
+
+class RateLimiter:
+    """Rate limiter for controlling request frequency per domain"""
+    
+    def __init__(self):
+        self.domain_limiters = {}
+        self.domain_last_request = {}
+    
+    def _get_domain(self, url: str) -> str:
+        """Extract domain from URL"""
+        parsed = urlparse(url)
+        return parsed.netloc
+    
+    def _get_limiter(self, domain: str):
+        """Get or create rate limiter for a domain"""
+        if domain not in self.domain_limiters:
+            # Get rate limit config for this domain, or use default
+            max_concurrent, min_interval = RATE_LIMITS.get(domain, (5, 0.3))
+            self.domain_limiters[domain] = asyncio.Semaphore(max_concurrent)
+            self.domain_last_request[domain] = 0
+        return self.domain_limiters[domain], RATE_LIMITS.get(domain, (5, 0.3))[1]
+    
+    async def acquire(self, url: str):
+        """Acquire permission to make a request to the given URL"""
+        domain = self._get_domain(url)
+        semaphore, min_interval = self._get_limiter(domain)
+        
+        # Wait for semaphore
+        await semaphore.acquire()
+        
+        # Ensure minimum interval between requests
+        current_time = time.time()
+        last_request = self.domain_last_request.get(domain, 0)
+        time_since_last = current_time - last_request
+        
+        if time_since_last < min_interval:
+            await asyncio.sleep(min_interval - time_since_last)
+        
+        self.domain_last_request[domain] = time.time()
+        return semaphore
+    
+    def release(self, url: str, semaphore):
+        """Release the semaphore after request completion"""
+        semaphore.release()
+
+
+# Global rate limiter instance
+_rate_limiter = RateLimiter()
+
+
+def get_rate_limiter() -> RateLimiter:
+    """Get the global rate limiter instance"""
+    return _rate_limiter
+
 
 
 class DownloadDataEntry:
@@ -71,13 +128,18 @@ class Downloader:
                 f"{download_request.url} exist tag:{tag} {self.tag_counter_dict[tag][0]}/{self.tag_counter_dict[tag][1]}")
             return
 
-        async with aiohttp.ClientSession(headers=header) as session:
-            response = await session.get(download_request.url, proxy=PROXY)
-            if response.status != 200:
-                print(f"\033[31mFaild tp dpwnlaod \033[0m:{download_request.url}")
-                raise Exception(download_request.url +
-                                " " + str(response.status))
-            content = await response.read()
+        rate_limiter = get_rate_limiter()
+        semaphore = await rate_limiter.acquire(download_request.url)
+        try:
+            async with aiohttp.ClientSession(headers=header) as session:
+                response = await session.get(download_request.url, proxy=PROXY)
+                if response.status != 200:
+                    print(f"\033[31mFaild tp dpwnlaod \033[0m:{download_request.url}")
+                    raise Exception(download_request.url +
+                                    " " + str(response.status))
+                content = await response.read()
+        finally:
+            rate_limiter.release(download_request.url, semaphore)
 
         with open(download_request.file_path, 'wb') as f:
             f.write(content)

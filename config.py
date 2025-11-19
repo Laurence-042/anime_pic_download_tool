@@ -7,6 +7,19 @@ DEFAULT_DOWNLOAD_PATH = "./download/"
 DOWNLOAD_THREAD_NUM = 8
 SLEEP_SECONDS_BETWEEN_BATCH = 3
 
+# Rate limiting configuration for different domains
+# Format: {domain: (max_concurrent_requests, min_interval_seconds)}
+RATE_LIMITS = {
+    "www.pixiv.net": (3, 0.5),  # Max 3 concurrent requests, 0.5s between requests
+    "i.pximg.net": (5, 0.3),     # Pixiv CDN
+    "gelbooru.com": (2, 0.5),
+    "yande.re": (2, 0.5),
+    "danbooru.donmai.us": (2, 0.5),
+    "pbs.twimg.com": (5, 0.3),   # Twitter images
+    "twitter.com": (2, 0.5),
+    "x.com": (2, 0.5),
+}
+
 
 def start_loop(loop):
     asyncio.set_event_loop(loop)

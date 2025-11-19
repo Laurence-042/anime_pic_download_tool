@@ -3,18 +3,23 @@ import re
 import aiohttp
 from bs4 import BeautifulSoup, NavigableString
 
-from utils import Downloader, DownloadDataEntry
+from utils import Downloader, DownloadDataEntry, get_rate_limiter
 from config import PROXY
 
 
 async def parse_danbooru(url):
     print(f"parsing {url}")
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, proxy=PROXY) as response:
-            if response.status != 200:
-                raise Exception(url + " " + str(response.status))
-            html = await response.text()
+    rate_limiter = get_rate_limiter()
+    semaphore = await rate_limiter.acquire(url)
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, proxy=PROXY) as response:
+                if response.status != 200:
+                    raise Exception(url + " " + str(response.status))
+                html = await response.text()
+    finally:
+        rate_limiter.release(url, semaphore)
 
     soup = BeautifulSoup(html, features="html.parser")
     print(f"parsed {url}")

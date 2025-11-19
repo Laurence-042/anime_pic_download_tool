@@ -5,7 +5,7 @@ from typing import List
 import aiohttp
 
 from parse_exception import ParseException
-from utils import Downloader, DownloadDataEntry
+from utils import Downloader, DownloadDataEntry, get_rate_limiter
 from config import PROXY, PIXIV_HEADER
 
 
@@ -30,40 +30,55 @@ async def _get_raw_file_urls(illust_code: str) -> List[str]:
 
 async def _get_one_page_urls(illust_code: str, session: aiohttp.ClientSession) -> List[str]:
     index_url = f"https://www.pixiv.net/ajax/illust/{illust_code}"
-    async with session.get(index_url, proxy=PROXY, headers=PIXIV_HEADER) as response:
-        if response.status != 200:
-            raise Exception(index_url + " " + str(response.status))
-        html = await response.text()
-        raw_data = json.loads(html)
+    rate_limiter = get_rate_limiter()
+    semaphore = await rate_limiter.acquire(index_url)
+    try:
+        async with session.get(index_url, proxy=PROXY, headers=PIXIV_HEADER) as response:
+            if response.status != 200:
+                raise Exception(index_url + " " + str(response.status))
+            html = await response.text()
+            raw_data = json.loads(html)
 
-        if raw_data['body']['pageCount'] == 1:
-            print(f"parsed {index_url}")
-            return [raw_data['body']['urls']['original']]
+            if raw_data['body']['pageCount'] == 1:
+                print(f"parsed {index_url}")
+                return [raw_data['body']['urls']['original']]
+    finally:
+        rate_limiter.release(index_url, semaphore)
 
 
 async def _get_all_pages_urls(illust_code: str, session: aiohttp.ClientSession) -> List[str]:
     pages_url = f"https://www.pixiv.net/ajax/illust/{illust_code}/pages?lang=zh"
-    async with session.get(pages_url, proxy=PROXY, headers=PIXIV_HEADER) as response:
-        if response.status != 200:
-            raise Exception(pages_url + " " + str(response.status))
-        html = await response.text()
-        raw_data = json.loads(html)
-        print(f"parsed {pages_url}")
-        return list(map(lambda x: x['urls']['original'], raw_data['body']))
+    rate_limiter = get_rate_limiter()
+    semaphore = await rate_limiter.acquire(pages_url)
+    try:
+        async with session.get(pages_url, proxy=PROXY, headers=PIXIV_HEADER) as response:
+            if response.status != 200:
+                raise Exception(pages_url + " " + str(response.status))
+            html = await response.text()
+            raw_data = json.loads(html)
+            print(f"parsed {pages_url}")
+            return list(map(lambda x: x['urls']['original'], raw_data['body']))
+    finally:
+        rate_limiter.release(pages_url, semaphore)
 
 
 async def _get_ugoira_urls(illust_code: str, session: aiohttp.ClientSession) -> List[str]:
     ugoira_meta_url = f"https://www.pixiv.net/ajax/illust/{illust_code}/ugoira_meta?lang=zh"
-    async with session.get(ugoira_meta_url, proxy=PROXY, headers=PIXIV_HEADER) as response:
-        if response.status != 200:
-            raise Exception(ugoira_meta_url + " " + str(response.status))
-        html = await response.text()
-        raw_data = json.loads(html)
-        print(f"parsed {ugoira_meta_url}")
-        url = raw_data['body']['originalSrc']
-        if not url:
-            raise ParseException("ugoira parse failed", ugoira_meta_url, html)
-        return [url]
+    rate_limiter = get_rate_limiter()
+    semaphore = await rate_limiter.acquire(ugoira_meta_url)
+    try:
+        async with session.get(ugoira_meta_url, proxy=PROXY, headers=PIXIV_HEADER) as response:
+            if response.status != 200:
+                raise Exception(ugoira_meta_url + " " + str(response.status))
+            html = await response.text()
+            raw_data = json.loads(html)
+            print(f"parsed {ugoira_meta_url}")
+            url = raw_data['body']['originalSrc']
+            if not url:
+                raise ParseException("ugoira parse failed", ugoira_meta_url, html)
+            return [url]
+    finally:
+        rate_limiter.release(ugoira_meta_url, semaphore)
 
 
 async def parse_pixiv(url, save_img_index_ls=None):
