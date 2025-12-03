@@ -39,7 +39,7 @@ def is_comfy_image(file_path: str) -> bool:
             metadata = img.info
             
             # Check for ComfyUI specific metadata keys
-            if 'prompt' in metadata or 'workflow' in metadata:
+            if 'prompt' in metadata or 'workflow' in metadata or 'parameters' in metadata:
                 return True
             
             # Some ComfyUI outputs may have different key names
