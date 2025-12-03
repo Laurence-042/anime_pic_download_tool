@@ -4,6 +4,7 @@ import time
 from asyncio import sleep
 from typing import List, Dict
 from urllib.parse import urlparse
+from post_process import post_process_downloaded_file
 
 import aiohttp
 from pyppeteer.network_manager import Response, Request
@@ -148,6 +149,13 @@ class Downloader:
 
         with open(download_request.file_path, 'wb') as f:
             f.write(content)
+
+        # Post-process: detect and rename ComfyUI images
+        if download_request.file_path.lower().endswith('.png'):
+            try:
+                post_process_downloaded_file(download_request.file_path)
+            except Exception as e:
+                print(f"Post-process warning: {e}")
 
         download_status = self.tag_counter_dict[tag]
         new_download_status = (download_status[0] + 1, download_status[1])
