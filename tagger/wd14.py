@@ -22,19 +22,28 @@ Legacy models (v2 - 2023):
 - wd-v1-4-convnextv2-tagger-v2
 - wd-v1-4-vit-tagger-v2
 - wd-v1-4-swinv2-tagger-v2
+
+Requirements:
+    pip install onnxruntime  # CPU only
+    pip install onnxruntime-gpu  # GPU support
 """
 
 import asyncio
-import aiohttp
-import numpy as np
 import csv
 import os
 from typing import List, Dict, Union
-import onnxruntime as ort
-from onnxruntime import InferenceSession
-from PIL import Image
 
 from .base import BaseTagger, TagResult
+
+# Try to import optional dependencies
+try:
+    import numpy as np
+    import onnxruntime as ort
+    from PIL import Image
+    import aiohttp
+    WD14_AVAILABLE = True
+except ImportError:
+    WD14_AVAILABLE = False
 
 # Model configuration
 MODELS = {
@@ -56,13 +65,16 @@ DEFAULT_MODEL = "wd-eva02-large-tagger-v3"
 DEFAULT_THRESHOLD = 0.35
 DEFAULT_CHARACTER_THRESHOLD = 0.85
 
-# Models directory
+# Models directory - created lazily
 MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wd14_models")
-if not os.path.exists(MODELS_DIR):
-    os.makedirs(MODELS_DIR)
 
 # ORT providers
 ORT_PROVIDERS = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
+
+def is_available() -> bool:
+    """Check if WD14 tagger dependencies are available."""
+    return WD14_AVAILABLE
 
 
 def _get_installed_models() -> List[str]:
@@ -88,6 +100,10 @@ async def _download_model(model_name: str, hf_endpoint: str = None):
     
     base_url = MODELS[model_name].replace("https://huggingface.co", hf_endpoint)
     url = f"{base_url}/resolve/main/"
+    
+    # Ensure models directory exists
+    if not os.path.exists(MODELS_DIR):
+        os.makedirs(MODELS_DIR)
     
     onnx_path = os.path.join(MODELS_DIR, f"{model_name}.onnx")
     csv_path = os.path.join(MODELS_DIR, f"{model_name}.csv")
@@ -133,6 +149,11 @@ class WD14Tagger(BaseTagger):
             hf_endpoint: HuggingFace endpoint (for mirrors)
             replace_underscore: Replace underscores with spaces in tags
         """
+        if not WD14_AVAILABLE:
+            raise ImportError(
+                "WD14 tagger dependencies are not installed. "
+                "Install with: pip install onnxruntime numpy pillow aiohttp"
+            )
         if model_name.endswith(".onnx"):
             model_name = model_name[:-5]
         self.model_name = model_name
@@ -148,6 +169,10 @@ class WD14Tagger(BaseTagger):
         if self._model is not None:
             return
         
+        # Ensure models directory exists
+        if not os.path.exists(MODELS_DIR):
+            os.makedirs(MODELS_DIR)
+        
         # Check if model is installed
         installed = _get_installed_models()
         if f"{self.model_name}.onnx" not in installed:
@@ -155,7 +180,7 @@ class WD14Tagger(BaseTagger):
         
         # Load model
         model_path = os.path.join(MODELS_DIR, f"{self.model_name}.onnx")
-        self._model = InferenceSession(model_path, providers=ORT_PROVIDERS)
+        self._model = ort.InferenceSession(model_path, providers=ORT_PROVIDERS)
         
         # Load tags from CSV
         self._tags = []
@@ -178,7 +203,7 @@ class WD14Tagger(BaseTagger):
     
     def get_tags(
         self,
-        image: Union[str, Image.Image],
+        image,
         threshold: float = DEFAULT_THRESHOLD,
         character_threshold: float = DEFAULT_CHARACTER_THRESHOLD,
     ) -> TagResult:
@@ -260,7 +285,7 @@ class WD14Tagger(BaseTagger):
 
 # Convenience functions for backward compatibility
 def get_tags(
-    image: Union[str, Image.Image],
+    image: Union[str, "Image.Image"],
     model_name: str = DEFAULT_MODEL,
     threshold: float = DEFAULT_THRESHOLD,
     character_threshold: float = DEFAULT_CHARACTER_THRESHOLD,
@@ -282,7 +307,7 @@ def get_tags(
 
 
 def get_tags_string(
-    image: Union[str, Image.Image],
+    image: Union[str, "Image.Image"],
     model_name: str = DEFAULT_MODEL,
     threshold: float = DEFAULT_THRESHOLD,
     character_threshold: float = DEFAULT_CHARACTER_THRESHOLD,

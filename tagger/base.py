@@ -6,8 +6,10 @@ All tagger implementations should inherit from BaseTagger and implement the get_
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Dict, Optional, Union
-from PIL import Image
+from typing import List, Dict, Optional, Union, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PIL import Image
 
 
 @dataclass
@@ -41,7 +43,7 @@ class BaseTagger(ABC):
     @abstractmethod
     def get_tags(
         self,
-        image: Union[str, Image.Image],
+        image,
         threshold: float = 0.35,
         character_threshold: float = 0.85,
     ) -> TagResult:
@@ -68,8 +70,9 @@ class BaseTagger(ABC):
         """Get the current model name."""
         pass
     
-    def _load_image(self, image: Union[str, Image.Image]) -> Image.Image:
+    def _load_image(self, image):
         """Load image from path or return as-is if already PIL Image."""
+        from PIL import Image
         if isinstance(image, str):
             return Image.open(image)
         return image

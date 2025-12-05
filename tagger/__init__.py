@@ -40,7 +40,21 @@ __all__ = [
     # Modules
     "wd14",
     "dghs",
+    # Functions
+    "is_available",
+    "get_default_tagger",
+    "get_tags",
 ]
+
+
+def is_available() -> bool:
+    """
+    Check if any tagger backend is available.
+    
+    Returns:
+        True if at least one tagger (wd14 or dghs) is available.
+    """
+    return wd14.is_available() or dghs.is_available()
 
 
 def get_default_tagger() -> BaseTagger:
@@ -48,10 +62,19 @@ def get_default_tagger() -> BaseTagger:
     Get the default tagger.
     
     Returns DGHS WD14 tagger if available, otherwise falls back to standalone WD14.
+    
+    Raises:
+        ImportError: If no tagger backend is available.
     """
     if dghs.is_available():
         return dghs.DghsWD14Tagger()
-    return wd14.WD14Tagger()
+    if wd14.is_available():
+        return wd14.WD14Tagger()
+    raise ImportError(
+        "No tagger backend available. Install one of:\n"
+        "  - pip install onnxruntime numpy pillow aiohttp  # for WD14\n"
+        "  - pip install dghs-imgutils[gpu]  # for DGHS"
+    )
 
 
 def get_tags(image, threshold: float = 0.35, character_threshold: float = 0.85) -> TagResult:

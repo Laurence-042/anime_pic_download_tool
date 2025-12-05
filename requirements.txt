@@ -4,3 +4,4 @@ pyppeteer
 Pillow
 apng
 onnxruntime
+dghs-imgutils[gpu]
