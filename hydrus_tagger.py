@@ -110,7 +110,11 @@ URL_PATTERNS = [
     (re.compile(r'^pixiv_(?P<id>\d+)_p\d+'), 'https://www.pixiv.net/artworks/{id}'),
     
     # twitter_{author}_{id}_{index}.{ext} -> https://x.com/{author}/status/{id}
-    (re.compile(r'^twitter_(?P<author>[^_]+)_(?P<id>\d+)_\d+'), 'https://x.com/{author}/status/{id}'),
+    # Author may contain underscores, id is 15-19 digit number, index is 1-2 digits
+    (re.compile(r'^twitter_(?P<author>.+)_(?P<id>\d{15,19})_\d{1,2}$'), 'https://x.com/{author}/status/{id}'),
+    
+    # twitter_{author}_{id}.{ext} (old format without index) -> https://x.com/{author}/status/{id}
+    (re.compile(r'^twitter_(?P<author>.+)_(?P<id>\d{15,19})$'), 'https://x.com/{author}/status/{id}'),
     
     # danbooru_{id}_{artist}_{source}.{ext} -> https://danbooru.donmai.us/posts/{id}
     (re.compile(r'^danbooru_(?P<id>\d+)_'), 'https://danbooru.donmai.us/posts/{id}'),
@@ -546,6 +550,8 @@ def post_process_file(file_path: str, threshold: float = 0.35,
             print(f"Renamed to: {os.path.basename(result.final_path)}")
         print(f"Generated sidecar: {os.path.basename(result.sidecar_path)}")
         print(f"  Tags: {len(result.tags)}, URLs: {len(result.urls)}")
+        if not result.urls:
+            print(f"\033[31m  Warning: Could not infer URL from filename\033[0m")
         if result.is_comfyui:
             print(f"  ComfyUI image detected")
     else:
