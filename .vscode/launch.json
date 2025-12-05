@@ -27,6 +27,30 @@
             "program": "${workspaceFolder}/hydrus_tagger.py",
             "args": ["${input:targetDirectory}", "--skip-existing"],
             "console": "integratedTerminal"
+        },
+        {
+            "name": "tag_analyzer: basic",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tag_analyzer.py",
+            "args": ["${input:targetDirectory}"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "tag_analyzer: combinations only",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tag_analyzer.py",
+            "args": ["${input:targetDirectory}", "--min-items", "2"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "tag_analyzer: export json",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tag_analyzer.py",
+            "args": ["${input:targetDirectory}", "-o", "${workspaceFolder}/tag_analysis.json"],
+            "console": "integratedTerminal"
         }
     ],
     "inputs": [
