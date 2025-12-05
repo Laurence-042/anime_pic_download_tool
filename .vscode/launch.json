@@ -5,19 +5,27 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "comfy_rename: dry-run",
+            "name": "hydrus_tagger: dry-run",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/comfy_rename.py",
+            "program": "${workspaceFolder}/hydrus_tagger.py",
             "args": ["${input:targetDirectory}", "--dry-run"],
             "console": "integratedTerminal"
         },
         {
-            "name": "comfy_rename: rename",
+            "name": "hydrus_tagger: process",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/comfy_rename.py",
+            "program": "${workspaceFolder}/hydrus_tagger.py",
             "args": ["${input:targetDirectory}"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "hydrus_tagger: skip existing",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/hydrus_tagger.py",
+            "args": ["${input:targetDirectory}", "--skip-existing"],
             "console": "integratedTerminal"
         }
     ],
@@ -25,7 +33,7 @@
         {
             "id": "targetDirectory",
             "type": "promptString",
-            "description": "Directory to scan for PNG files",
+            "description": "Directory to scan for image files",
             "default": "./download"
         }
     ]
