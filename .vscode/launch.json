@@ -29,11 +29,11 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "tag_analyzer: basic",
+            "name": "tag_analyzer",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/tag_analyzer.py",
-            "args": ["${input:targetDirectory}"],
+            "args": ["${input:targetDirectory}", "--exclude-common", "10", "--min-items", "3"],
             "console": "integratedTerminal"
         },
         {

@@ -12,10 +12,12 @@ Usage:
     python tag_analyzer.py ./download --max-items 5      # Only show itemsets with up to 5 tags
     python tag_analyzer.py ./download --top 50           # Show top 50 frequent itemsets
     python tag_analyzer.py ./download --exclude-rating   # Exclude rating:* tags
+    python tag_analyzer.py ./download --exclude-common 20  # Exclude top 20 most common tags
+    python tag_analyzer.py ./download --min-lift 1.5     # Only show itemsets with lift > 1.5
     python tag_analyzer.py ./download -o result.json     # Export results to JSON
 
 Output:
-    Displays frequent tag combinations sorted by support (frequency).
+    Displays frequent tag combinations sorted by support (frequency) or lift (interestingness).
 """
 
 import argparse
@@ -23,9 +25,17 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Optional
 from collections import Counter
 from dataclasses import dataclass, field
+
+
+@dataclass
+class ItemsetInfo:
+    """Information about a frequent itemset."""
+    itemset: frozenset
+    support: float
+    lift: float = 1.0  # Lift = 1 means independent, > 1 means positive correlation
 
 
 @dataclass
@@ -36,13 +46,15 @@ class AnalysisResult:
     unique_tags: int = 0
     tag_sets: List[Set[str]] = field(default_factory=list)
     tag_frequency: Dict[str, int] = field(default_factory=dict)
-    frequent_itemsets: List[Tuple[frozenset, float]] = field(default_factory=list)
+    frequent_itemsets: List[ItemsetInfo] = field(default_factory=list)
+    excluded_common_tags: List[str] = field(default_factory=list)
 
 
 def collect_tag_sets(
     directory: str,
     recursive: bool = True,
-    exclude_patterns: List[str] = None
+    exclude_patterns: List[str] = None,
+    exclude_tags: Set[str] = None
 ) -> Tuple[List[Set[str]], Counter]:
     """
     Collect all tag sets from sidecar JSON files in a directory.
@@ -51,6 +63,7 @@ def collect_tag_sets(
         directory: Directory to scan
         recursive: Whether to scan subdirectories
         exclude_patterns: Tag prefixes to exclude (e.g., ['rating:'])
+        exclude_tags: Specific tags to exclude
         
     Returns:
         Tuple of (list of tag sets, tag frequency counter)
@@ -58,6 +71,7 @@ def collect_tag_sets(
     tag_sets = []
     tag_counter = Counter()
     exclude_patterns = exclude_patterns or []
+    exclude_tags = exclude_tags or set()
     
     if recursive:
         json_files = Path(directory).rglob("*.json")
@@ -78,11 +92,14 @@ def collect_tag_sets(
             if not tags:
                 continue
             
-            # Filter out excluded patterns
+            # Filter out excluded patterns and specific tags
             filtered_tags = set()
             for tag in tags:
-                if not any(tag.startswith(pattern) for pattern in exclude_patterns):
-                    filtered_tags.add(tag)
+                if tag in exclude_tags:
+                    continue
+                if any(tag.startswith(pattern) for pattern in exclude_patterns):
+                    continue
+                filtered_tags.add(tag)
             
             if filtered_tags:
                 tag_sets.append(filtered_tags)
@@ -95,23 +112,79 @@ def collect_tag_sets(
     return tag_sets, tag_counter
 
 
-def fp_growth(
+def get_common_tags(directory: str, recursive: bool = True, top_n: int = 20) -> List[str]:
+    """
+    Get the most common tags from a directory (before any filtering).
+    
+    Args:
+        directory: Directory to scan
+        recursive: Whether to scan subdirectories
+        top_n: Number of top tags to return
+        
+    Returns:
+        List of most common tag names
+    """
+    _, tag_counter = collect_tag_sets(directory, recursive, exclude_patterns=None, exclude_tags=None)
+    return [tag for tag, _ in tag_counter.most_common(top_n)]
+
+
+def calculate_lift(
+    itemset: frozenset,
+    itemset_support: float,
+    tag_supports: Dict[str, float]
+) -> float:
+    """
+    Calculate lift for an itemset.
+    
+    Lift = P(A ∩ B) / (P(A) * P(B))
+    Lift > 1 means positive correlation (tags appear together more than expected)
+    Lift = 1 means independent
+    Lift < 1 means negative correlation (tags appear together less than expected)
+    
+    Args:
+        itemset: The itemset (frozenset of tags)
+        itemset_support: Support of the itemset
+        tag_supports: Dictionary mapping each tag to its individual support
+        
+    Returns:
+        Lift value
+    """
+    if len(itemset) < 2:
+        return 1.0
+    
+    # Calculate expected support if tags were independent
+    expected_support = 1.0
+    for tag in itemset:
+        if tag in tag_supports:
+            expected_support *= tag_supports[tag]
+        else:
+            return 1.0  # Can't calculate if tag support unknown
+    
+    if expected_support == 0:
+        return 1.0
+    
+    return itemset_support / expected_support
+
+
+def fp_growth_with_lift(
     tag_sets: List[Set[str]],
     min_support: float = 0.05,
     min_items: int = 1,
-    max_items: int = None
-) -> List[Tuple[frozenset, float]]:
+    max_items: int = None,
+    min_lift: float = None
+) -> Tuple[List[ItemsetInfo], Dict[str, float]]:
     """
-    Find frequent itemsets using FP-Growth algorithm.
+    Find frequent itemsets using FP-Growth algorithm and calculate lift.
     
     Args:
         tag_sets: List of tag sets
         min_support: Minimum support threshold (0.0 to 1.0)
         min_items: Minimum number of items in an itemset
         max_items: Maximum number of items in an itemset (None for no limit)
+        min_lift: Minimum lift threshold (None for no filtering)
         
     Returns:
-        List of (itemset, support) tuples sorted by support descending
+        Tuple of (list of ItemsetInfo, dict of tag supports)
     """
     try:
         from mlxtend.frequent_patterns import fpgrowth
@@ -123,7 +196,7 @@ def fp_growth(
         sys.exit(1)
     
     if not tag_sets:
-        return []
+        return [], {}
     
     # Convert tag sets to list of lists for TransactionEncoder
     transactions = [list(ts) for ts in tag_sets]
@@ -133,15 +206,18 @@ def fp_growth(
     te_array = te.fit_transform(transactions)
     df = pd.DataFrame(te_array, columns=te.columns_)
     
+    # Calculate individual tag supports
+    tag_supports = {col: df[col].mean() for col in df.columns}
+    
     # Run FP-Growth
     try:
         frequent_itemsets = fpgrowth(df, min_support=min_support, use_colnames=True)
     except Exception as e:
         print(f"Error running FP-Growth: {e}")
-        return []
+        return [], tag_supports
     
     if frequent_itemsets.empty:
-        return []
+        return [], tag_supports
     
     # Filter by item count
     frequent_itemsets['length'] = frequent_itemsets['itemsets'].apply(len)
@@ -152,23 +228,35 @@ def fp_growth(
     if max_items is not None:
         frequent_itemsets = frequent_itemsets[frequent_itemsets['length'] <= max_items]
     
-    # Sort by support descending
-    frequent_itemsets = frequent_itemsets.sort_values('support', ascending=False)
+    # Calculate lift and create ItemsetInfo objects
+    results = []
+    for _, row in frequent_itemsets.iterrows():
+        itemset = row['itemsets']
+        support = row['support']
+        lift = calculate_lift(itemset, support, tag_supports)
+        
+        # Filter by lift if specified
+        if min_lift is not None and lift < min_lift:
+            continue
+        
+        results.append(ItemsetInfo(
+            itemset=itemset,
+            support=support,
+            lift=lift
+        ))
     
-    # Convert to list of tuples
-    result = [
-        (row['itemsets'], row['support'])
-        for _, row in frequent_itemsets.iterrows()
-    ]
-    
-    return result
+    return results, tag_supports
 
 
-def format_itemset(itemset: frozenset, support: float, total_files: int) -> str:
+def format_itemset(info: ItemsetInfo, total_files: int, show_lift: bool = True) -> str:
     """Format an itemset for display."""
-    count = int(support * total_files)
-    tags = sorted(itemset)
-    return f"[{support*100:5.1f}%] ({count:4d}) {', '.join(tags)}"
+    count = int(info.support * total_files)
+    tags = sorted(info.itemset)
+    
+    if show_lift and len(info.itemset) >= 2:
+        return f"[{info.support*100:5.1f}%] ({count:4d}) [lift:{info.lift:5.2f}] {', '.join(tags)}"
+    else:
+        return f"[{info.support*100:5.1f}%] ({count:4d}) {', '.join(tags)}"
 
 
 def analyze_tags(
@@ -178,7 +266,10 @@ def analyze_tags(
     min_items: int = 1,
     max_items: int = None,
     top_n: int = 100,
-    exclude_patterns: List[str] = None
+    exclude_patterns: List[str] = None,
+    exclude_common: int = None,
+    min_lift: float = None,
+    sort_by_lift: bool = False
 ) -> AnalysisResult:
     """
     Perform complete tag analysis on a directory.
@@ -191,15 +282,30 @@ def analyze_tags(
         max_items: Maximum items per itemset
         top_n: Number of top itemsets to return
         exclude_patterns: Tag prefixes to exclude
+        exclude_common: Number of most common tags to exclude
+        min_lift: Minimum lift threshold
+        sort_by_lift: Sort by lift instead of support
         
     Returns:
         AnalysisResult with all analysis data
     """
     result = AnalysisResult()
     
+    # First pass: get common tags if needed
+    exclude_tags = set()
+    if exclude_common and exclude_common > 0:
+        print(f"Finding top {exclude_common} common tags to exclude...")
+        common_tags = get_common_tags(directory, recursive, exclude_common)
+        exclude_tags = set(common_tags)
+        result.excluded_common_tags = common_tags
+        print(f"Excluding: {', '.join(common_tags)}")
+        print()
+    
     # Collect tag sets
     print(f"Scanning directory: {directory}")
-    tag_sets, tag_counter = collect_tag_sets(directory, recursive, exclude_patterns)
+    tag_sets, tag_counter = collect_tag_sets(
+        directory, recursive, exclude_patterns, exclude_tags
+    )
     
     result.total_files = len(tag_sets)
     result.tag_sets = tag_sets
@@ -215,9 +321,19 @@ def analyze_tags(
     print(f"Total tags: {result.total_tags}, Unique tags: {result.unique_tags}")
     print()
     
-    # Run FP-Growth
-    print(f"Running FP-Growth (min_support={min_support}, min_items={min_items}, max_items={max_items})...")
-    frequent_itemsets = fp_growth(tag_sets, min_support, min_items, max_items)
+    # Run FP-Growth with lift calculation
+    lift_info = f", min_lift={min_lift}" if min_lift else ""
+    print(f"Running FP-Growth (min_support={min_support}, min_items={min_items}, max_items={max_items}{lift_info})...")
+    
+    frequent_itemsets, _ = fp_growth_with_lift(
+        tag_sets, min_support, min_items, max_items, min_lift
+    )
+    
+    # Sort results
+    if sort_by_lift:
+        frequent_itemsets.sort(key=lambda x: (-x.lift, -x.support))
+    else:
+        frequent_itemsets.sort(key=lambda x: (-x.support, -x.lift))
     
     # Limit to top_n
     result.frequent_itemsets = frequent_itemsets[:top_n] if top_n else frequent_itemsets
@@ -225,19 +341,19 @@ def analyze_tags(
     return result
 
 
-def print_results(result: AnalysisResult, show_single: bool = False):
+def print_results(result: AnalysisResult, show_single: bool = False, show_lift: bool = True):
     """Print analysis results to console."""
     if not result.frequent_itemsets:
-        print("No frequent itemsets found. Try lowering --min-support.")
+        print("No frequent itemsets found. Try lowering --min-support or --min-lift.")
         return
     
     print(f"\nFound {len(result.frequent_itemsets)} frequent itemsets:")
-    print("-" * 70)
+    print("-" * 80)
     
-    for itemset, support in result.frequent_itemsets:
-        if len(itemset) == 1 and not show_single:
+    for info in result.frequent_itemsets:
+        if len(info.itemset) == 1 and not show_single:
             continue
-        print(format_itemset(itemset, support, result.total_files))
+        print(format_itemset(info, result.total_files, show_lift))
 
 
 def export_results(result: AnalysisResult, output_path: str):
@@ -248,6 +364,7 @@ def export_results(result: AnalysisResult, output_path: str):
             "total_tags": result.total_tags,
             "unique_tags": result.unique_tags,
         },
+        "excluded_common_tags": result.excluded_common_tags,
         "tag_frequency": dict(sorted(
             result.tag_frequency.items(), 
             key=lambda x: x[1], 
@@ -255,11 +372,12 @@ def export_results(result: AnalysisResult, output_path: str):
         )),
         "frequent_itemsets": [
             {
-                "tags": sorted(list(itemset)),
-                "support": support,
-                "count": int(support * result.total_files)
+                "tags": sorted(list(info.itemset)),
+                "support": info.support,
+                "count": int(info.support * result.total_files),
+                "lift": info.lift
             }
-            for itemset, support in result.frequent_itemsets
+            for info in result.frequent_itemsets
         ]
     }
     
@@ -282,11 +400,23 @@ Examples:
     %(prog)s ./download --max-items 3        # Limit itemset size
     %(prog)s ./download --top 100            # Show top 100 patterns
     %(prog)s ./download --exclude-rating     # Exclude rating:* tags
+    %(prog)s ./download --exclude-common 20  # Exclude top 20 most common tags
+    %(prog)s ./download --min-lift 1.5       # Only show correlated tags (lift > 1.5)
+    %(prog)s ./download --sort-by-lift       # Sort by lift (interestingness) instead of support
     %(prog)s ./download -o analysis.json     # Export results to JSON
 
 Support Value:
     Support represents how often a tag combination appears.
-    A support of 0.1 means the combination appears in 10% of images.
+    A support of 0.1 means the combination appears in 10%% of images.
+
+Lift Value:
+    Lift measures how much more often tags appear together than expected by chance.
+    Lift > 1: Tags are positively correlated (appear together more than expected)
+    Lift = 1: Tags are independent (no special relationship)
+    Lift < 1: Tags are negatively correlated (appear together less than expected)
+    
+    Example: If "blonde_hair" appears in 20%% and "blue_eyes" in 10%% of images,
+    random chance would give 2%% co-occurrence. If actual is 5%%, lift = 5/2 = 2.5
         """
     )
     
@@ -343,9 +473,36 @@ Support Value:
     )
     
     parser.add_argument(
+        '--exclude-common',
+        type=int,
+        default=None,
+        metavar='N',
+        help='Exclude the top N most common tags from analysis'
+    )
+    
+    parser.add_argument(
+        '--min-lift',
+        type=float,
+        default=None,
+        help='Minimum lift threshold (only show positively correlated tags)'
+    )
+    
+    parser.add_argument(
+        '--sort-by-lift',
+        action='store_true',
+        help='Sort results by lift (interestingness) instead of support (frequency)'
+    )
+    
+    parser.add_argument(
         '--show-single',
         action='store_true',
         help='Show single-tag itemsets in output'
+    )
+    
+    parser.add_argument(
+        '--no-lift',
+        action='store_true',
+        help='Do not show lift values in output'
     )
     
     parser.add_argument(
@@ -374,11 +531,14 @@ Support Value:
         min_items=args.min_items,
         max_items=args.max_items,
         top_n=args.top,
-        exclude_patterns=exclude_patterns if exclude_patterns else None
+        exclude_patterns=exclude_patterns if exclude_patterns else None,
+        exclude_common=args.exclude_common,
+        min_lift=args.min_lift,
+        sort_by_lift=args.sort_by_lift
     )
     
     # Print results
-    print_results(result, show_single=args.show_single)
+    print_results(result, show_single=args.show_single, show_lift=not args.no_lift)
     
     # Export if requested
     if args.output:
