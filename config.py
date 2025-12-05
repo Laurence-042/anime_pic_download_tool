@@ -1,7 +1,6 @@
 import asyncio
 import re
 from collections import OrderedDict
-from threading import Thread
 
 DEFAULT_DOWNLOAD_PATH = "./download/"
 DOWNLOAD_THREAD_NUM = 8
@@ -21,10 +20,6 @@ RATE_LIMITS = {
 }
 
 
-def start_loop(loop):
-    asyncio.set_event_loop(loop)
-    loop.run_forever()
-
 def parse_raw_header(raw_header):
     header_entries = raw_header.split("\n")
     kv_ls = list(map(lambda x:x.split(': ',1),filter(bool, header_entries)))
@@ -34,12 +29,6 @@ def parse_raw_header(raw_header):
     return res
 
 
-
-new_loop = asyncio.new_event_loop()
-COROUTINE_THREAD = Thread(target=start_loop, args=(new_loop,))
-COROUTINE_THREAD.start()
-
-COROUTINE_THREAD_LOOP = new_loop
 # PROXY = 'http://127.0.0.1:41091'
 PROXY = None
 # PROXY = 'http://127.0.0.1:2049'

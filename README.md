@@ -24,3 +24,7 @@
   - 之前在这里搞到了罕见的图包，但现在完全挂了
 - Jigex
   - 现在叫jigsawexplorer。本身只是个拼图网站，但之前用户可以自行上传图片，于是喜闻乐见的事情就发生了……可惜现在没有了。
+
+## License
+MIT
+This project includes components from [pythongosssss/ComfyUI-WD14-Tagger](https://github.com/pythongosssss/ComfyUI-WD14-Tagger) (MIT licensed).

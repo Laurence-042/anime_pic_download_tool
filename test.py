@@ -1,10 +1,9 @@
 import asyncio
 import aiohttp
-from config import DEFAULT_DOWNLOAD_PATH, DOWNLOAD_THREAD_NUM, COROUTINE_THREAD_LOOP, SLEEP_SECONDS_BETWEEN_BATCH,PROXY
-from pixiv_parser import parse_pixiv
-
-from twitter_parser import parse_twitter
-from yandere_parser import parse_yandere
+from config import DEFAULT_DOWNLOAD_PATH, DOWNLOAD_THREAD_NUM, SLEEP_SECONDS_BETWEEN_BATCH, PROXY
+from parser.pixiv import parse_pixiv
+from parser.twitter import parse_twitter
+from parser.yandere import parse_yandere
 
 
 async def test_pixiv_download():

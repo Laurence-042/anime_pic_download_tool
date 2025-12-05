@@ -3,3 +3,8 @@ __pycache__/
 download/
 tmp*
 *.log
+venv/
+
+# Cookies and sensitive files
+*_cookies.txt
+*.cookies.txt

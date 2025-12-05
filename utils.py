@@ -9,7 +9,7 @@ from post_process import post_process_downloaded_file
 import aiohttp
 from pyppeteer.network_manager import Response, Request
 
-from config import DEFAULT_DOWNLOAD_PATH, DOWNLOAD_THREAD_NUM, COROUTINE_THREAD_LOOP, SLEEP_SECONDS_BETWEEN_BATCH, PROXY, RATE_LIMITS
+from config import DEFAULT_DOWNLOAD_PATH, DOWNLOAD_THREAD_NUM, SLEEP_SECONDS_BETWEEN_BATCH, PROXY, RATE_LIMITS
 
 
 class RateLimiter:
@@ -109,14 +109,20 @@ class Downloader:
             full_file_path = os.path.join(file_save_dir, request.file_path)
             request.file_path = full_file_path
 
-        while len(requests_ls) > 0:
-            request_batch = requests_ls[:self.thread_num]
-            requests_ls = requests_ls[self.thread_num:]
-            for request in request_batch:
-                # print(request, tag)
-                asyncio.run_coroutine_threadsafe(self.download_pic(
-                    request, tag, header), COROUTINE_THREAD_LOOP)
-            await sleep(SLEEP_SECONDS_BETWEEN_BATCH)
+        # Create download tasks and run them concurrently with rate limiting
+        download_tasks = []
+        for request in requests_ls:
+            task = asyncio.create_task(self.download_pic(request, tag, header))
+            download_tasks.append(task)
+            # Limit concurrent downloads
+            if len(download_tasks) >= self.thread_num:
+                await asyncio.gather(*download_tasks)
+                download_tasks = []
+                await sleep(SLEEP_SECONDS_BETWEEN_BATCH)
+        
+        # Wait for remaining tasks
+        if download_tasks:
+            await asyncio.gather(*download_tasks)
     
     async def wait_for_tag_completion(self, tag: str):
         """Wait until all downloads for the given tag are complete."""

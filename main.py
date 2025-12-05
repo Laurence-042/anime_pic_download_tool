@@ -1,17 +1,21 @@
 import asyncio
 import logging
 import sys
-from asyncio import sleep
 
-import config
-from danbooru_parser import parse_danbooru
-from gelbooru_parser import parse_gelbooru
 from parse_exception import ParseException
-from pixiv_parser import parse_pixiv
-from twitter_parser import parse_twitter
-from yandere_parser import parse_yandere
+
+# Import from new parser module
+from parser import (
+    parse_pixiv,
+    parse_danbooru,
+    parse_gelbooru,
+    parse_yandere,
+    parse_twitter,
+)
 
 _failed = []
+
+
 async def downloader(url: str, save_img_index_tp: tuple):
     try:
         if url.startswith("https://www.pixiv.net"):
@@ -35,11 +39,6 @@ async def downloader(url: str, save_img_index_tp: tuple):
         print(f"\033[31mException raised while parsing\033[0m:{url}")
         logging.exception(e)
         _failed.append(url)
-
-
-async def wait_loop_end():
-    while len(asyncio.all_tasks(config.COROUTINE_THREAD_LOOP)) > 0:
-        await sleep(1)
 
 
 def get_input_from_cli():
@@ -73,13 +72,11 @@ if __name__ == '__main__':
     raw_in = map(lambda x: (x[0], tuple(map(int, x[1].split())) if x[1]!="all" else tuple()) if len(x) > 1 else (x[0], None), raw_in)
     url_ls = list(raw_in)
 
-    new_loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(new_loop)
-    tasks = [asyncio.ensure_future(downloader(url, want_index_tp)) for url, want_index_tp in url_ls]
-    new_loop.run_until_complete(asyncio.wait(tasks))
-    new_loop.run_until_complete(wait_loop_end())
+    async def main():
+        tasks = [downloader(url, want_index_tp) for url, want_index_tp in url_ls]
+        await asyncio.gather(*tasks)
 
-    config.COROUTINE_THREAD_LOOP.call_soon_threadsafe(config.COROUTINE_THREAD_LOOP.stop)
+    asyncio.run(main())
 
     if _failed:
         print("=======FAILED==========")
