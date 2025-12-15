@@ -214,12 +214,35 @@ class CamieV2Tagger(BaseTagger):
         
         img = self._load_image(image)
         
-        # Resize to 512x512 (model input size)
+        # Preprocess image with aspect ratio preservation (official approach)
+        # Reference: https://huggingface.co/Camais03/camie-tagger-v2/blob/main/onnx_inference.py
         img = img.convert('RGB')
-        img = img.resize((512, 512), Image.Resampling.LANCZOS)
+        
+        # Calculate new dimensions to maintain aspect ratio
+        width, height = img.size
+        aspect_ratio = width / height
+        image_size = 512
+        
+        if aspect_ratio > 1:
+            new_width = image_size
+            new_height = int(new_width / aspect_ratio)
+        else:
+            new_height = image_size
+            new_width = int(new_height * aspect_ratio)
+        
+        # Resize with LANCZOS filter
+        img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        
+        # Create new image with padding (use ImageNet mean for padding)
+        # Using RGB values close to ImageNet mean: (0.485*255, 0.456*255, 0.406*255)
+        pad_color = (124, 116, 104)
+        new_image = Image.new('RGB', (image_size, image_size), pad_color)
+        paste_x = (image_size - new_width) // 2
+        paste_y = (image_size - new_height) // 2
+        new_image.paste(img, (paste_x, paste_y))
         
         # Convert to numpy array and normalize
-        img_array = np.array(img).astype(np.float32) / 255.0
+        img_array = np.array(new_image).astype(np.float32) / 255.0
         
         # ImageNet normalization
         mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape(1, 1, 3)
