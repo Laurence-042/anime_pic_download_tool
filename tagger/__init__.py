@@ -42,6 +42,7 @@ Available Taggers:
 from .base import BaseTagger, TagResult
 from . import dghs
 from . import camie
+from . import camie_v2
 
 __all__ = [
     # Base classes
@@ -50,6 +51,7 @@ __all__ = [
     # Modules
     "dghs",
     "camie",
+    "camie_v2",
     # Functions
     "is_available",
     "get_default_tagger",
@@ -62,27 +64,30 @@ def is_available() -> bool:
     Check if any tagger backend is available.
     
     Returns:
-        True if at least one tagger (dghs or camie) is available.
+        True if at least one tagger (dghs, camie, or camie_v2) is available.
     """
-    return dghs.is_available() or camie.is_available()
+    return dghs.is_available() or camie.is_available() or camie_v2.is_available()
 
 
 def get_default_tagger() -> BaseTagger:
     """
     Get the default tagger.
     
-    Returns DGHS WD14 tagger if available, otherwise falls back to Camie.
+    Returns DGHS WD14 tagger if available, otherwise falls back to Camie V2 or Camie.
     
     Raises:
         ImportError: If no tagger backend is available.
     """
     if dghs.is_available():
         return dghs.DghsWD14Tagger()
+    if camie_v2.is_available():
+        return camie_v2.CamieV2Tagger()
     if camie.is_available():
         return camie.CamieTagger()
     raise ImportError(
         "No tagger backend available. Install:\n"
-        "  pip install dghs-imgutils[gpu]  # Recommended (includes all taggers)"
+        "  pip install dghs-imgutils[gpu]  # Recommended (includes WD14, ML-Danbooru, Camie)\n"
+        "  pip install transformers torch   # For Camie V2"
     )
 
 

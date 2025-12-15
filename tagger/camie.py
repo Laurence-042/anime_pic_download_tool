@@ -2,7 +2,10 @@
 Camie Tagger implementation using dghs-imgutils.
 
 Camie Tagger can identify 70,000+ tags including rating, general, and character tags.
-Based on: https://huggingface.co/Camais03/camie-tagger
+Based on Camais03/camie-tagger, using ONNX optimizations from deepghs/camie_tagger_onnx.
+
+Original: https://huggingface.co/Camais03/camie-tagger
+ONNX: https://huggingface.co/deepghs/camie_tagger_onnx
 
 Installation:
     pip install dghs-imgutils[gpu]  # For GPU support
@@ -33,7 +36,8 @@ class CamieTagger(BaseTagger):
     Camie Tagger supporting 70,000+ tags.
     
     Supports rating, general tags, and character tags.
-    Uses balanced mode by default for precision/recall balance.
+    Uses high_recall mode by default for better coverage.
+    Note: dghs-imgutils uses deepghs/camie_tagger_onnx, not the original Camais03 models.
     """
     
     def __init__(self, model_name: str = 'initial', mode: str = 'high_recall'):
@@ -42,8 +46,9 @@ class CamieTagger(BaseTagger):
         
         Args:
             model_name: Name of the Camie model to use (default: 'initial')
+                       Note: dghs-imgutils may only support 'initial' model
             mode: Prediction mode affecting threshold values:
-                  - 'balanced': Balanced precision/recall (default)
+                  - 'balanced': Balanced precision/recall
                   - 'high_precision': Higher precision thresholds
                   - 'high_recall': Higher recall thresholds
                   - 'micro_opt': Micro-optimized thresholds
@@ -115,6 +120,7 @@ class CamieTagger(BaseTagger):
     
     def get_available_models(self) -> list:
         """Get list of available models."""
+        # dghs-imgutils uses deepghs/camie_tagger_onnx which may only have 'initial'
         return ["initial"]
     
     def get_current_model(self) -> str:
@@ -133,15 +139,15 @@ def get_tags(
     character_threshold: float = 0.85,
 ) -> TagResult:
     """
-    Convenience function to get tags using Caformer (ML-Danbooru).
+    Convenience function to get tags using Camie tagger.
     
     Args:
         image: Path to image file or PIL Image object
         threshold: Confidence threshold for tags
-        character_threshold: Not used (for interface compatibility)
+        character_threshold: Confidence threshold for character tags
         
     Returns:
         TagResult object containing tags and metadata
     """
-    tagger = CaformerTagger()
+    tagger = CamieTagger()
     return tagger.get_tags(image, threshold, character_threshold)

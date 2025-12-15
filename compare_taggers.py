@@ -21,7 +21,8 @@ Usage:
 Available taggers:
     - wd14: WD14 EVA02-Large model (9k tags)
     - mldanbooru: ML-Danbooru Caformer model (12,547 tags)
-    - camie: Camie model (70,000+ tags)
+    - camie: Camie model v1 (70,000+ tags, via dghs-imgutils)
+    - camie_v2: Camie model v2 (70,000+ tags, improved distribution, via transformers)
 """
 
 import argparse
@@ -99,12 +100,12 @@ def get_tagger(tagger_name: str):
     Get a tagger instance by name.
     
     Args:
-        tagger_name: Name of the tagger (wd14, mldanbooru, camie)
+        tagger_name: Name of the tagger (wd14, mldanbooru, camie, camie_v2)
         
     Returns:
         Tuple of (tagger instance, display name)
     """
-    from tagger import dghs, camie
+    from tagger import dghs, camie, camie_v2
     
     tagger_name = tagger_name.lower()
     
@@ -114,8 +115,10 @@ def get_tagger(tagger_name: str):
         return dghs.DghsMLDanbooruTagger(), "ML-Danbooru"
     elif tagger_name == 'camie':
         return camie.CamieTagger(), "Camie"
+    elif tagger_name == 'camie_v2':
+        return camie_v2.CamieV2Tagger(), "Camie-V2"
     else:
-        raise ValueError(f"Unknown tagger: {tagger_name}. Available: wd14, mldanbooru, camie")
+        raise ValueError(f"Unknown tagger: {tagger_name}. Available: wd14, mldanbooru, camie, camie_v2")
 
 
 def run_tagger(tagger, image_path: str, threshold: float = 0.35, 
@@ -457,7 +460,8 @@ Examples:
 Available taggers:
     - wd14: WD14 EVA02-Large model (9k tags)
     - mldanbooru: ML-Danbooru Caformer model (12,547 tags)
-    - camie: Camie model (70,000+ tags)
+    - camie: Camie model v1 (70,000+ tags, via dghs-imgutils)
+    - camie_v2: Camie model v2 (70,000+ tags, improved distribution)
         """
     )
     
@@ -469,15 +473,15 @@ Available taggers:
     parser.add_argument(
         '--tagger1',
         default='wd14',
-        choices=['wd14', 'mldanbooru', 'camie'],
+        choices=['wd14', 'mldanbooru', 'camie', 'camie_v2'],
         help='First tagger to use (default: wd14)'
     )
     
     parser.add_argument(
         '--tagger2',
-        default='camie',
-        choices=['wd14', 'mldanbooru', 'camie'],
-        help='Second tagger to use (default: camie)'
+        default='camie_v2',
+        choices=['wd14', 'mldanbooru', 'camie', 'camie_v2'],
+        help='Second tagger to use (default: camie_v2)'
     )
     
     parser.add_argument(

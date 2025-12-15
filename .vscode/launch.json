@@ -61,6 +61,14 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "compare_taggers: WD14 vs Camie V2",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/compare_taggers.py",
+            "args": ["${input:targetFile}", "--tagger1", "wd14", "--tagger2", "camie_v2", "--show-common"],
+            "console": "integratedTerminal"
+        },
+        {
             "name": "compare_taggers: WD14 vs Camie",
             "type": "debugpy",
             "request": "launch",
@@ -110,15 +118,15 @@
             "id": "tagger1",
             "type": "pickString",
             "description": "First tagger",
-            "options": ["wd14", "mldanbooru", "camie"],
+            "options": ["wd14", "mldanbooru", "camie", "camie_v2"],
             "default": "wd14"
         },
         {
             "id": "tagger2",
             "type": "pickString",
             "description": "Second tagger",
-            "options": ["wd14", "mldanbooru", "camie"],
-            "default": "camie"
+            "options": ["wd14", "mldanbooru", "camie", "camie_v2"],
+            "default": "camie_v2"
         },
         {
             "id": "threshold",

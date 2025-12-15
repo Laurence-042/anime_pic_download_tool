@@ -10,3 +10,7 @@ comparison.json/
 # Cookies and sensitive files
 *_cookies.txt
 *.cookies.txt
+
+# Model files (large binary files)
+models/camie-v2/*
+!models/camie-v2/README.md
