@@ -37,6 +37,29 @@ except ImportError:
 DEFAULT_THRESHOLD = 0.35
 MODEL_REPO = "Camais03/camie-tagger-v2"
 
+# Meta tags blacklist - filter out database/metadata tags that don't describe image content
+META_TAGS_BLACKLIST = {
+    # Source/ID related
+    'bad_id', 'bad_pixiv_id', 'bad_twitter_id', 'bad_tumblr_id', 'bad_deviantart_id',
+    'bad_nicoseiga_id', 'bad_source', 'md5_mismatch',
+    
+    # Commentary/translation related
+    'commentary', 'commentary_request', 'commentary_typo', 'partial_commentary',
+    'english_commentary', 'chinese_commentary', 'korean_commentary', 'translated',
+    'translation_request', 'check_translation', 'partial_translation',
+    'symbol-only_commentary', 'character_name',
+    
+    # Revision/processing related
+    'revision', 'annotated', 'third-party_edit', 'duplicate',
+    
+    # Year tags (usually not useful for image generation)
+    'year_2021', 'year_2022', 'year_2023', 'year_2024', 'year_2025',
+    
+    # Other metadata
+    'tagme', 'check_copyright', 'check_character', 'check_artist',
+    'artist_request', 'character_request', 'copyright_request',
+}
+
 # Singleton instances to avoid reloading model
 _model_session = None
 _model_metadata = None
@@ -236,6 +259,10 @@ class CamieV2Tagger(BaseTagger):
             tag_name = self._idx_to_tag.get(idx_str)
             if tag_name is None:
                 continue  # Skip unknown indices
+            
+            # Filter out blacklisted meta tags
+            if tag_name in META_TAGS_BLACKLIST:
+                continue
             
             # Get category for this tag
             category = self._tag_to_category.get(tag_name, 'general')
