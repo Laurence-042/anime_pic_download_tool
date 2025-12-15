@@ -5,6 +5,7 @@ tmp*
 *.log
 venv/
 bak/
+comparison.json/
 
 # Cookies and sensitive files
 *_cookies.txt

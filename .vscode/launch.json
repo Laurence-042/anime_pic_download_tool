@@ -51,6 +51,46 @@
             "program": "${workspaceFolder}/tag_analyzer.py",
             "args": ["${input:targetDirectory}", "-o", "${workspaceFolder}/tag_analysis.json"],
             "console": "integratedTerminal"
+        },
+        {
+            "name": "compare_taggers: single file",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/compare_taggers.py",
+            "args": ["${input:targetFile}", "--tagger1", "${input:tagger1}", "--tagger2", "${input:tagger2}", "--threshold", "0.35"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "compare_taggers: WD14 vs Camie",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/compare_taggers.py",
+            "args": ["${input:targetFile}", "--tagger1", "wd14", "--tagger2", "camie", "--show-common"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "compare_taggers: WD14 vs MLDanbooru",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/compare_taggers.py",
+            "args": ["${input:targetFile}", "--tagger1", "wd14", "--tagger2", "mldanbooru", "--threshold", "0.4"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "compare_taggers: directory batch",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/compare_taggers.py",
+            "args": ["${input:targetDirectory}", "--recursive", "--tagger1", "${input:tagger1}", "--tagger2", "${input:tagger2}"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "compare_taggers: export comparison",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/compare_taggers.py",
+            "args": ["${input:targetFile}", "--tagger1", "${input:tagger1}", "--tagger2", "${input:tagger2}", "--threshold", "${input:threshold}", "--export", "${workspaceFolder}/comparison.json"],
+            "console": "integratedTerminal"
         }
     ],
     "inputs": [
@@ -59,6 +99,32 @@
             "type": "promptString",
             "description": "Directory to scan for image files",
             "default": "./download"
+        },
+        {
+            "id": "targetFile",
+            "type": "promptString",
+            "description": "Image file to process",
+            "default": "./download/pixiv_137957281_p0.jpg"
+        },
+        {
+            "id": "tagger1",
+            "type": "pickString",
+            "description": "First tagger",
+            "options": ["wd14", "mldanbooru", "camie"],
+            "default": "wd14"
+        },
+        {
+            "id": "tagger2",
+            "type": "pickString",
+            "description": "Second tagger",
+            "options": ["wd14", "mldanbooru", "camie"],
+            "default": "camie"
+        },
+        {
+            "id": "threshold",
+            "type": "promptString",
+            "description": "Confidence threshold (0.0 - 1.0)",
+            "default": "0.35"
         }
     ]
 }

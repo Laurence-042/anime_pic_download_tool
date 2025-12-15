@@ -94,29 +94,26 @@ class ComparisonResult:
             self.confidence_diff[tag] = (conf1, conf2, abs(conf1 - conf2))
 
 
-def get_tagger(tagger_name: str, model_name: Optional[str] = None):
+def get_tagger(tagger_name: str):
     """
     Get a tagger instance by name.
     
     Args:
         tagger_name: Name of the tagger (wd14, mldanbooru, camie)
-        model_name: Optional model name (for wd14)
         
     Returns:
-        Tagger instance
+        Tuple of (tagger instance, display name)
     """
     from tagger import dghs, camie
     
     tagger_name = tagger_name.lower()
     
     if tagger_name == 'wd14':
-        model = model_name or "EVA02_Large"
-        return dghs.DghsWD14Tagger(model_name=model), f"WD14-{model}"
+        return dghs.DghsWD14Tagger(), "WD14"
     elif tagger_name == 'mldanbooru':
         return dghs.DghsMLDanbooruTagger(), "ML-Danbooru"
     elif tagger_name == 'camie':
-        mode = model_name or "balanced"
-        return camie.CamieTagger(mode=mode), f"Camie-{mode}"
+        return camie.CamieTagger(), "Camie"
     else:
         raise ValueError(f"Unknown tagger: {tagger_name}. Available: wd14, mldanbooru, camie")
 
@@ -145,8 +142,6 @@ def compare_image(
     tagger2_name: str,
     threshold: float = 0.35,
     character_threshold: float = 0.85,
-    model1: Optional[str] = None,
-    model2: Optional[str] = None,
 ) -> ComparisonResult:
     """
     Compare two taggers on a single image.
@@ -157,8 +152,6 @@ def compare_image(
         tagger2_name: Name of second tagger
         threshold: Confidence threshold for general tags
         character_threshold: Confidence threshold for character tags
-        model1: Optional model name for tagger1
-        model2: Optional model name for tagger2
         
     Returns:
         ComparisonResult object
@@ -180,8 +173,8 @@ def compare_image(
             print(f"Using static version for tagging: {os.path.basename(static_path)}")
     
     # Get taggers
-    tagger1, model1_name = get_tagger(tagger1_name, model1)
-    tagger2, model2_name = get_tagger(tagger2_name, model2)
+    tagger1, model1_name = get_tagger(tagger1_name)
+    tagger2, model2_name = get_tagger(tagger2_name)
     
     # Run tagger 1
     print(f"Running {model1_name}...")
@@ -388,15 +381,9 @@ def compare_directory(
     recursive: bool = True,
     threshold: float = 0.35,
     character_threshold: float = 0.85,
-    model1: Optional[str] = None,
-    model2: Optional[str] = None,
     export_dir: Optional[str] = None,
 ):
     """Compare two taggers on all images in a directory."""
-    if not os.path.isdir(directory):
-        print(f"Error: {directory} is not a valid directory")
-        return
-    
     # Collect image files
     if recursive:
         file_iterator = (
@@ -434,8 +421,6 @@ def compare_directory(
                 tagger2_name,
                 threshold,
                 character_threshold,
-                model1,
-                model2,
             )
             
             print_comparison(comparison, show_common=False, show_confidence=True)
@@ -496,20 +481,10 @@ Available taggers:
     )
     
     parser.add_argument(
-        '--model1',
-        help='Model name for tagger1 (e.g., EVA02_Large for wd14, balanced for camie)'
-    )
-    
-    parser.add_argument(
-        '--model2',
-        help='Model name for tagger2'
-    )
-    
-    parser.add_argument(
         '-t', '--threshold',
         type=float,
         default=0.35,
-        help='Confidence threshold for general tags (default: 0.35)'
+        help='Confidence threshold for tags (default: 0.35)'
     )
     
     parser.add_argument(
@@ -549,8 +524,8 @@ Available taggers:
     if os.path.isfile(path):
         # Single file comparison
         print(f"Comparing taggers on: {path}")
-        print(f"Tagger 1: {args.tagger1}" + (f" ({args.model1})" if args.model1 else ""))
-        print(f"Tagger 2: {args.tagger2}" + (f" ({args.model2})" if args.model2 else ""))
+        print(f"Tagger 1: {args.tagger1}")
+        print(f"Tagger 2: {args.tagger2}")
         print(f"Threshold: {args.threshold}")
         print(f"Character threshold: {args.character_threshold}")
         
@@ -561,8 +536,6 @@ Available taggers:
                 args.tagger2,
                 args.threshold,
                 args.character_threshold,
-                args.model1,
-                args.model2,
             )
             
             print_comparison(comparison, show_common=args.show_common, show_confidence=True)
@@ -576,8 +549,8 @@ Available taggers:
     else:
         # Directory comparison
         print(f"Comparing taggers on directory: {path}")
-        print(f"Tagger 1: {args.tagger1}" + (f" ({args.model1})" if args.model1 else ""))
-        print(f"Tagger 2: {args.tagger2}" + (f" ({args.model2})" if args.model2 else ""))
+        print(f"Tagger 1: {args.tagger1}")
+        print(f"Tagger 2: {args.tagger2}")
         print(f"Recursive: {args.recursive}")
         print(f"Threshold: {args.threshold}")
         print(f"Character threshold: {args.character_threshold}")
@@ -589,8 +562,6 @@ Available taggers:
             recursive=args.recursive,
             threshold=args.threshold,
             character_threshold=args.character_threshold,
-            model1=args.model1,
-            model2=args.model2,
             export_dir=args.export,
         )
 

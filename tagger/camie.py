@@ -36,7 +36,7 @@ class CamieTagger(BaseTagger):
     Uses balanced mode by default for precision/recall balance.
     """
     
-    def __init__(self, model_name: str = 'initial', mode: str = 'balanced'):
+    def __init__(self, model_name: str = 'initial', mode: str = 'high_recall'):
         """
         Initialize Camie Tagger.
         
