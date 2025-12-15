@@ -4,42 +4,52 @@ Anime Image Tagger Module
 This module provides a unified interface for different anime image tagging backends.
 
 Usage:
-    # Using WD14 tagger (standalone implementation)
-    from tagger import wd14
-    result = wd14.get_tags("image.png")
-    print(result.raw_string)
-    
     # Using DGHS tagger (requires dghs-imgutils)
     from tagger import dghs
     if dghs.is_available():
-        result = dghs.get_tags("image.png", model="wd14")
+        result = dghs.get_tags("image.png", model="EVA02_Large")
+        print(result.raw_string)
+    
+    # Using Camie tagger (70,000+ tags including rating/general/character)
+    from tagger import camie
+    if camie.is_available():
+        result = camie.get_tags("image.png")
         print(result.raw_string)
     
     # Using class-based API
-    from tagger.wd14 import WD14Tagger
     from tagger.dghs import DghsWD14Tagger, DghsMLDanbooruTagger
+    from tagger.camie import CamieTagger
     
-    tagger = WD14Tagger(model_name="wd-eva02-large-tagger-v3")
+    # WD14 tagger (EVA02-Large recommended)
+    tagger = DghsWD14Tagger(model_name="EVA02_Large")
+    result = tagger.get_tags("image.png")
+    
+    # ML-Danbooru tagger (12,547 tags, Caformer architecture)
+    tagger = DghsMLDanbooruTagger()
+    result = tagger.get_tags("image.png")
+    
+    # Camie tagger (70,000+ tags)
+    tagger = CamieTagger(mode='balanced')
     result = tagger.get_tags("image.png")
 
 Available Taggers:
-    - wd14: Standalone WD14 implementation (no extra dependencies)
     - dghs: DGHS imgutils wrapper (requires: pip install dghs-imgutils)
-        - DghsWD14Tagger: WD14 models via dghs
-        - DghsMLDanbooruTagger: ML-Danbooru with 12,547 tags
+        - DghsWD14Tagger: WD14 models (EVA02_Large, ViT_Large, etc.)
+        - DghsMLDanbooruTagger: ML-Danbooru with 12,547 tags (Caformer)
+    - camie: Camie tagger with 70,000+ tags (rating, general, character)
 """
 
 from .base import BaseTagger, TagResult
-from . import wd14
 from . import dghs
+from . import camie
 
 __all__ = [
     # Base classes
     "BaseTagger",
     "TagResult",
     # Modules
-    "wd14",
     "dghs",
+    "camie",
     # Functions
     "is_available",
     "get_default_tagger",
@@ -52,28 +62,27 @@ def is_available() -> bool:
     Check if any tagger backend is available.
     
     Returns:
-        True if at least one tagger (wd14 or dghs) is available.
+        True if at least one tagger (dghs or camie) is available.
     """
-    return wd14.is_available() or dghs.is_available()
+    return dghs.is_available() or camie.is_available()
 
 
 def get_default_tagger() -> BaseTagger:
     """
     Get the default tagger.
     
-    Returns DGHS WD14 tagger if available, otherwise falls back to standalone WD14.
+    Returns DGHS WD14 tagger if available, otherwise falls back to Camie.
     
     Raises:
         ImportError: If no tagger backend is available.
     """
     if dghs.is_available():
         return dghs.DghsWD14Tagger()
-    if wd14.is_available():
-        return wd14.WD14Tagger()
+    if camie.is_available():
+        return camie.CamieTagger()
     raise ImportError(
-        "No tagger backend available. Install one of:\n"
-        "  - pip install onnxruntime numpy pillow aiohttp  # for WD14\n"
-        "  - pip install dghs-imgutils[gpu]  # for DGHS"
+        "No tagger backend available. Install:\n"
+        "  pip install dghs-imgutils[gpu]  # Recommended (includes all taggers)"
     )
 
 

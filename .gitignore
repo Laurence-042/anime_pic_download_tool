@@ -4,6 +4,7 @@ download/
 tmp*
 *.log
 venv/
+bak/
 
 # Cookies and sensitive files
 *_cookies.txt
