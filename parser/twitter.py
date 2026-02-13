@@ -3,6 +3,7 @@ Twitter/X parser for downloading images and videos.
 """
 
 import asyncio
+import logging
 import re
 import time
 from typing import Dict, List
@@ -15,6 +16,12 @@ from cookie_parser import parse_cookie_from_export_cookie_file_plugin
 from parse_exception import ParseException
 from utils import Downloader, DownloadDataEntry, pyppeteer_request_debug, pyppeteer_response_debug
 from config import PROXY
+
+# Limit concurrent browser instances to avoid resource contention and CDP session errors
+_browser_semaphore = asyncio.Semaphore(2)
+
+_NAVIGATE_TIMEOUT = 30000  # ms
+_MAX_RETRIES = 3
 
 
 def get_file_name_without_suffix(save_index_in_post, post_author, post_code):
@@ -91,34 +98,58 @@ class TwitterParser(BaseParser):
         post_author = post_url_search_res.group(1)
         post_code = post_url_search_res.group(2)
 
-        # Launch browser
-        if PROXY:
+        async with _browser_semaphore:
+            # Launch browser
+            launch_args = ['--ignore-certificate-errors']
+            if PROXY:
+                launch_args.insert(0, f'--proxy-server={PROXY}')
             browser = await launch({
-                'args': [f'--proxy-server={PROXY}', '--ignore-certificate-errors'], 
-                'headless': False
-            })
-        else:
-            browser = await launch({
-                'args': ['--ignore-certificate-errors'], 
+                'args': launch_args,
                 'headless': False
             })
 
-        page = await browser.newPage()
-        
-        # Set cookies
-        edge_cookies = parse_cookie_from_export_cookie_file_plugin()
-        twitter_cookies = list(map(cookie_to_pyppeteer_ver, edge_cookies))
-        await page.setCookie(*twitter_cookies)
+            try:
+                page = await browser.newPage()
 
-        # Navigate and capture response
-        response, _ = await asyncio.gather(
-            page.waitForResponse(response_filter, timeout=15000),
-            page.goto(url)
-        )
-        response_data: dict = await response.json()
-        print(f"parsed {url}")
-        await page.close()
-        await browser.close()
+                # Set cookies
+                edge_cookies = parse_cookie_from_export_cookie_file_plugin()
+                twitter_cookies = list(map(cookie_to_pyppeteer_ver, edge_cookies))
+                await page.setCookie(*twitter_cookies)
+
+                # Navigate and capture response with retry
+                response_data = None
+                last_error = None
+                for attempt in range(1, _MAX_RETRIES + 1):
+                    try:
+                        response, _ = await asyncio.gather(
+                            page.waitForResponse(response_filter, timeout=_NAVIGATE_TIMEOUT),
+                            page.goto(url)
+                        )
+                        response_data = await response.json()
+                        break
+                    except Exception as e:
+                        last_error = e
+                        if attempt < _MAX_RETRIES:
+                            logging.warning(
+                                f"Attempt {attempt}/{_MAX_RETRIES} failed for {url}: {e}, retrying..."
+                            )
+                            await asyncio.sleep(2)
+                        else:
+                            logging.error(f"All {_MAX_RETRIES} attempts failed for {url}")
+
+                if response_data is None:
+                    raise last_error
+
+                print(f"parsed {url}")
+            finally:
+                try:
+                    await page.close()
+                except Exception:
+                    pass
+                try:
+                    await browser.close()
+                except Exception:
+                    pass
 
         core_data: dict = response_data['data']
 
