@@ -112,7 +112,7 @@ class TwitterParser(BaseParser):
 
         # Navigate and capture response
         response, _ = await asyncio.gather(
-            page.waitForResponse(response_filter),
+            page.waitForResponse(response_filter, timeout=15000),
             page.goto(url)
         )
         response_data: dict = await response.json()

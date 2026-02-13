@@ -140,33 +140,71 @@ def save_sidecar(sidecar_path: str, data: Dict) -> None:
 def get_image_tags(image_path: str, threshold: float = 0.35, 
                    character_threshold: float = 0.85) -> Tuple[List[str], Optional[str]]:
     """
-    Extract tags from an image using dghs-imgutils.
+    Extract tags from an image using both WD14 EVA02_Large and Camie V2.
+    Returns the union of tags from both models.
     """
+    all_tags = set()
+    rating = None
+    
+    # Step 1: Run WD14 EVA02_Large with threshold 0.52
     try:
         from tagger import dghs
         
-        if not dghs.is_available():
-            raise ImportError("dghs-imgutils is not available")
+        if dghs.is_available():
+            tagger = dghs.DghsWD14Tagger(model_name='EVA02_Large')
+            result = tagger.get_tags(image_path, threshold=0.52, character_threshold=character_threshold)
+            
+            wd14_tags = set(result.tags.keys())
+            all_tags.update(wd14_tags)
+            
+            # Extract rating from WD14 results
+            rating_tags = [t for t in wd14_tags if t.startswith('rating:')]
+            if rating_tags:
+                rating = rating_tags[0].split(':', 1)[1]
+            
+            print(f"  WD14 EVA02-Large: {len(wd14_tags)} tags")
+        else:
+            print(f"  Warning: dghs-imgutils not available, skipping WD14")
+            
+    except ImportError as e:
+        print(f"  Warning: Could not import dghs tagger: {e}")
+    except Exception as e:
+        print(f"  Warning: Error running WD14 on {image_path}: {e}")
+    
+    # Step 2: Run Camie V2 with threshold 0.51
+    try:
+        from tagger.camie_v2 import CamieV2Tagger
         
-        tagger = dghs.DghsWD14Tagger()
-        result = tagger.get_tags(image_path, threshold, character_threshold)
+        camie_tagger = CamieV2Tagger()
+        result = camie_tagger.get_tags(image_path, threshold=0.51, character_threshold=character_threshold)
         
-        tags = list(result.tags.keys())
+        # Add namespace prefixes based on tag category
+        camie_tags_with_namespace = set()
+        for tag in result.tags.keys():
+            category = camie_tagger._tag_to_category.get(tag, 'general')
+            
+            if category == 'artist':
+                prefixed_tag = f'creator:{tag}'
+            elif category == 'character':
+                prefixed_tag = f'character:{tag}'
+            elif category == 'copyright':
+                prefixed_tag = f'series:{tag}'
+            else:
+                # general, meta tags - no prefix
+                prefixed_tag = tag
+            
+            camie_tags_with_namespace.add(prefixed_tag)
         
-        # Try to get rating if available
-        rating = None
-        rating_tags = [t for t in tags if t.startswith('rating:')]
-        if rating_tags:
-            rating = rating_tags[0].split(':', 1)[1]
+        all_tags.update(camie_tags_with_namespace)
         
-        return tags, rating
+        print(f"  Camie V2: {len(result.tags)} tags")
         
     except ImportError as e:
-        print(f"Warning: Could not import tagger: {e}")
-        return [], None
+        print(f"  Warning: Could not import Camie V2 tagger: {e}")
     except Exception as e:
-        print(f"Warning: Error getting tags for {image_path}: {e}")
-        return [], None
+        print(f"  Warning: Error running Camie V2 on {image_path}: {e}")
+    
+    return list(all_tags), rating
 
 
 def process_image(

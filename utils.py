@@ -308,12 +308,12 @@ class Downloader:
     async def download_pic(self, download_request: DownloadDataEntry, tag: str, header: Dict[str, str]):
         print(f"Ready to download {download_request.url}")
         if os.path.exists(download_request.file_path) and os.path.getsize(download_request.file_path) > 0:
+            print(
+                f"{download_request.url} exist tag:{tag} {self.tag_counter_dict[tag][0]}/{self.tag_counter_dict[tag][1]}")
             self.tag_counter_dict[tag] = (
                 self.tag_counter_dict[tag][0] + 1, self.tag_counter_dict[tag][1])
             if self.tag_counter_dict[tag][0] == self.tag_counter_dict[tag][1]:
                 del self.tag_counter_dict[tag]
-            print(
-                f"{download_request.url} exist tag:{tag} {self.tag_counter_dict[tag][0]}/{self.tag_counter_dict[tag][1]}")
             return
 
         rate_limiter = get_rate_limiter()
