@@ -30,8 +30,63 @@ def parse_raw_header(raw_header):
 
 
 # PROXY = 'http://127.0.0.1:41091'
-PROXY = None
 # PROXY = 'http://127.0.0.1:2049'
+
+
+def _detect_system_proxy():
+    """Detect system proxy settings.
+
+    Order of precedence:
+    1. Standard environment variables (HTTPS_PROXY / HTTP_PROXY / ALL_PROXY).
+    2. On Windows, the IE/system proxy from the registry
+       (Internet Settings -> ProxyEnable / ProxyServer).
+    Returns a proxy URL string (e.g. 'http://127.0.0.1:7890') or None.
+    """
+    import os
+
+    for var in ("HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy",
+                "HTTP_PROXY", "http_proxy"):
+        val = os.environ.get(var)
+        if val:
+            return val
+
+    if os.name == "nt":
+        try:
+            import winreg
+            key_path = r"Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path) as key:
+                proxy_enable, _ = winreg.QueryValueEx(key, "ProxyEnable")
+                if not proxy_enable:
+                    return None
+                proxy_server, _ = winreg.QueryValueEx(key, "ProxyServer")
+        except (OSError, FileNotFoundError):
+            return None
+
+        if not proxy_server:
+            return None
+
+        # ProxyServer can be either "host:port" (single proxy for all schemes)
+        # or "http=host:port;https=host:port;..." (per-scheme proxies).
+        if "=" in proxy_server:
+            entries = {}
+            for part in proxy_server.split(";"):
+                if "=" in part:
+                    scheme, addr = part.split("=", 1)
+                    entries[scheme.strip().lower()] = addr.strip()
+            addr = entries.get("https") or entries.get("http")
+            if not addr:
+                return None
+        else:
+            addr = proxy_server.strip()
+
+        if "://" not in addr:
+            addr = "http://" + addr
+        return addr
+
+    return None
+
+
+PROXY = _detect_system_proxy()
 
 PIXIV_HEADER = parse_raw_header("""accept: */*
 accept-encoding: gzip
