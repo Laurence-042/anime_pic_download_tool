@@ -34,11 +34,11 @@ async def downloader(url: str, save_img_index_tp: tuple):
             print(f"\033[31mno support\033[0m:{url}")
     except ParseException as e:
         logging.exception(e)
-        _failed.append(url)
+        _failed.append((url, save_img_index_tp))
     except Exception as e:
         print(f"\033[31mException raised while parsing\033[0m:{url}")
         logging.exception(e)
-        _failed.append(url)
+        _failed.append((url, save_img_index_tp))
 
 
 def get_input_from_cli():
@@ -80,5 +80,8 @@ if __name__ == '__main__':
 
     if _failed:
         print("=======FAILED==========")
-        for url in _failed:
-            print(url)
+        for url, index_tp in _failed:
+            if index_tp:
+                print(f"{url} {' '.join(map(str, index_tp))}")
+            else:
+                print(url)

@@ -323,7 +323,13 @@ class Downloader:
             async with aiohttp.ClientSession(headers=header) as session:
                 response = await session.get(download_request.url, proxy=PROXY, timeout=timeout)
                 if response.status != 200:
-                    print(f"\033[31mFaild tp dpwnlaod \033[0m:{download_request.url}")
+                    download_status = self.tag_counter_dict[tag]
+                    new_download_status = (download_status[0] + 1, download_status[1])
+                    if new_download_status[0] == new_download_status[1]:
+                        del self.tag_counter_dict[tag]
+                    else:
+                        self.tag_counter_dict[tag] = new_download_status
+                    print(f"\033[31mFailed to download\033[0m: {download_request.url} tag:{tag} {new_download_status[0]}/{new_download_status[1]} status:{response.status}")
                     raise Exception(download_request.url +
                                     " " + str(response.status))
                 content = await response.read()
