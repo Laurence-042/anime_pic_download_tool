@@ -319,8 +319,9 @@ class Downloader:
         rate_limiter = get_rate_limiter()
         semaphore = await rate_limiter.acquire(download_request.url)
         try:
+            timeout = aiohttp.ClientTimeout(connect=30, sock_read=120)
             async with aiohttp.ClientSession(headers=header) as session:
-                response = await session.get(download_request.url, proxy=PROXY)
+                response = await session.get(download_request.url, proxy=PROXY, timeout=timeout)
                 if response.status != 200:
                     print(f"\033[31mFaild tp dpwnlaod \033[0m:{download_request.url}")
                     raise Exception(download_request.url +

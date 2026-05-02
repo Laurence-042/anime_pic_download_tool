@@ -201,7 +201,8 @@ class PixivParser(BaseParser):
         rate_limiter = get_rate_limiter()
         semaphore = await rate_limiter.acquire(index_url)
         try:
-            async with session.get(index_url, proxy=PROXY, headers=PIXIV_HEADER) as response:
+            timeout = aiohttp.ClientTimeout(connect=30, sock_read=60)
+            async with session.get(index_url, proxy=PROXY, headers=PIXIV_HEADER, timeout=timeout) as response:
                 if response.status != 200:
                     raise Exception(index_url + " " + str(response.status))
                 html = await response.text()
@@ -219,7 +220,8 @@ class PixivParser(BaseParser):
         rate_limiter = get_rate_limiter()
         semaphore = await rate_limiter.acquire(pages_url)
         try:
-            async with session.get(pages_url, proxy=PROXY, headers=PIXIV_HEADER) as response:
+            timeout = aiohttp.ClientTimeout(connect=30, sock_read=60)
+            async with session.get(pages_url, proxy=PROXY, headers=PIXIV_HEADER, timeout=timeout) as response:
                 if response.status != 200:
                     raise Exception(pages_url + " " + str(response.status))
                 html = await response.text()
@@ -234,7 +236,8 @@ class PixivParser(BaseParser):
         rate_limiter = get_rate_limiter()
         semaphore = await rate_limiter.acquire(ugoira_meta_url)
         try:
-            async with session.get(ugoira_meta_url, proxy=PROXY, headers=PIXIV_HEADER) as response:
+            timeout = aiohttp.ClientTimeout(connect=30, sock_read=60)
+            async with session.get(ugoira_meta_url, proxy=PROXY, headers=PIXIV_HEADER, timeout=timeout) as response:
                 if response.status != 200:
                     raise Exception(ugoira_meta_url + " " + str(response.status))
                 html = await response.text()
