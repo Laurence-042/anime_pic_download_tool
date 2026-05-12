@@ -10,7 +10,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/hydrus_tagger.py",
             "args": ["${input:targetDirectory}", "--dry-run"],
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         },
         {
             "name": "hydrus_tagger: process",
@@ -18,7 +19,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/hydrus_tagger.py",
             "args": ["${input:targetDirectory}"],
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         },
         {
             "name": "hydrus_tagger: skip existing",
@@ -26,7 +28,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/hydrus_tagger.py",
             "args": ["${input:targetDirectory}", "--skip-existing"],
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         },
         {
             "name": "tag_analyzer",
@@ -34,7 +37,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/tag_analyzer.py",
             "args": ["${input:targetDirectory}", "--exclude-common", "10", "--min-items", "3"],
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         },
         {
             "name": "tag_analyzer: combinations only",
@@ -42,7 +46,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/tag_analyzer.py",
             "args": ["${input:targetDirectory}", "--min-items", "2"],
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         },
         {
             "name": "tag_analyzer: export json",
@@ -50,7 +55,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/tag_analyzer.py",
             "args": ["${input:targetDirectory}", "-o", "${workspaceFolder}/tag_analysis.json"],
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         },
         {
             "name": "compare_taggers: single file",
@@ -58,7 +64,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/compare_taggers.py",
             "args": ["${input:targetFile}", "--tagger1", "${input:tagger1}", "--tagger2", "${input:tagger2}", "--threshold", "0.35"],
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         },
         {
             "name": "compare_taggers: WD14 vs Camie V2",
@@ -66,7 +73,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/compare_taggers.py",
             "args": ["${input:targetFile}", "--tagger1", "wd14", "--tagger2", "camie_v2", "--show-common"],
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         },
         {
             "name": "compare_taggers: WD14 vs Camie",
@@ -74,7 +82,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/compare_taggers.py",
             "args": ["${input:targetFile}", "--tagger1", "wd14", "--tagger2", "camie", "--show-common"],
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         },
         {
             "name": "compare_taggers: WD14 vs MLDanbooru",
@@ -82,7 +91,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/compare_taggers.py",
             "args": ["${input:targetFile}", "--tagger1", "wd14", "--tagger2", "mldanbooru", "--threshold", "0.4"],
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         },
         {
             "name": "compare_taggers: directory batch",
@@ -90,7 +100,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/compare_taggers.py",
             "args": ["${input:targetDirectory}", "--recursive", "--tagger1", "${input:tagger1}", "--tagger2", "${input:tagger2}"],
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         },
         {
             "name": "compare_taggers: export comparison",
@@ -98,7 +109,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/compare_taggers.py",
             "args": ["${input:targetFile}", "--tagger1", "${input:tagger1}", "--tagger2", "${input:tagger2}", "--threshold", "${input:threshold}", "--export", "${workspaceFolder}/comparison.json"],
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ],
     "inputs": [
