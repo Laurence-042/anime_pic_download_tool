@@ -3,7 +3,9 @@ Twitter/X parser for downloading images and videos.
 """
 
 import asyncio
+import glob
 import logging
+import os
 import re
 import time
 from typing import Dict, List
@@ -208,6 +210,21 @@ class TwitterParser(BaseParser):
 # Legacy function for backward compatibility
 async def parse_twitter(url, save_img_index_ls=None):
     """Legacy function - use TwitterParser class instead."""
+    from config import DEFAULT_DOWNLOAD_PATH
+    if save_img_index_ls is None:
+        save_img_index_ls = [1]
+    post_url_search_res = re.search(TwitterParser.URL_PATTERN, url)
+    if post_url_search_res:
+        post_author = post_url_search_res.group(1)
+        post_code = post_url_search_res.group(2)
+        if all(
+            glob.glob(os.path.join(DEFAULT_DOWNLOAD_PATH, f"twitter_{post_author}_{post_code}_{idx}.*"))
+            for idx in save_img_index_ls
+        ):
+            print(f"already downloaded {url} {save_img_index_ls}, skipping")
+            return
+
+    print(f"parsing {url}")
     parser = TwitterParser()
     result = await parser.parse(url, save_img_index_ls)
     

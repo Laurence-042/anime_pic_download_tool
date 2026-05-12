@@ -2,6 +2,7 @@
 Pixiv parser for downloading illustrations and ugoira.
 """
 
+import glob
 import json
 import os
 import re
@@ -255,12 +256,20 @@ class PixivParser(BaseParser):
 # Legacy function for backward compatibility
 async def parse_pixiv(url, save_img_index_ls=None):
     """Legacy function - use PixivParser class instead."""
-    print(f"parsing {url}")
     if save_img_index_ls is None:
         save_img_index_ls = [0]
     illust_code = re.search(
         r"https?://www.pixiv.net/artworks/(\d+)", url).group(1)
 
+    # Check if all requested images already exist before making any network requests
+    if all(
+        glob.glob(os.path.join(DEFAULT_DOWNLOAD_PATH, f"pixiv_{illust_code}_p{idx}.*"))
+        for idx in save_img_index_ls
+    ):
+        print(f"already downloaded {url} {save_img_index_ls}, skipping")
+        return
+
+    print(f"parsing {url}")
     parser = PixivParser()
     illust_list, ugoira_data = await parser._get_raw_file_urls(illust_code)
 
