@@ -319,22 +319,29 @@ class Downloader:
         rate_limiter = get_rate_limiter()
         semaphore = await rate_limiter.acquire(download_request.url)
         try:
-            timeout = aiohttp.ClientTimeout(connect=30, sock_read=120)
+            # total=300 caps the entire download at 5 minutes, preventing hangs on
+            # slow servers where sock_read alone never fires (data trickles in slowly).
+            timeout = aiohttp.ClientTimeout(connect=30, sock_read=10, total=300)
             async with aiohttp.ClientSession(headers=header) as session:
                 response = await session.get(download_request.url, proxy=PROXY, timeout=timeout)
                 if response.status != 200:
-                    download_status = self.tag_counter_dict[tag]
-                    new_download_status = (download_status[0] + 1, download_status[1])
-                    if new_download_status[0] == new_download_status[1]:
-                        del self.tag_counter_dict[tag]
-                    else:
-                        self.tag_counter_dict[tag] = new_download_status
-                    print(f"\033[31mFailed to download\033[0m: {download_request.url} tag:{tag} {new_download_status[0]}/{new_download_status[1]} status:{response.status}")
+                    print(f"\033[31mFailed to download\033[0m: {download_request.url} tag:{tag} status:{response.status}")
                     raise Exception(download_request.url +
                                     " " + str(response.status))
                 content = await response.read()
         finally:
             rate_limiter.release(download_request.url, semaphore)
+            # Always update the counter so tag_counter_dict is never left dangling.
+            # Without this, any exception from response.read() (e.g. ClientPayloadError)
+            # would leave the entry in place and cause the next submit_download_requests
+            # call for the same tag to wait forever.
+            if tag in self.tag_counter_dict:
+                _ds = self.tag_counter_dict[tag]
+                _new_ds = (_ds[0] + 1, _ds[1])
+                if _new_ds[0] == _new_ds[1]:
+                    del self.tag_counter_dict[tag]
+                else:
+                    self.tag_counter_dict[tag] = _new_ds
 
         with open(download_request.file_path, 'wb') as f:
             f.write(content)
@@ -346,14 +353,7 @@ class Downloader:
         except Exception as e:
             print(f"Post-process warning: {e}")
 
-        download_status = self.tag_counter_dict[tag]
-        new_download_status = (download_status[0] + 1, download_status[1])
-        if new_download_status[0] == new_download_status[1]:
-            del self.tag_counter_dict[tag]
-        else:
-            self.tag_counter_dict[tag] = new_download_status
-        print(
-            f"{download_request.url} ok tag:{tag} {new_download_status[0]}/{new_download_status[1]}")
+        print(f"{download_request.url} ok tag:{tag}")
 
 async def pyppeteer_request_debug(request:Request):
     # Response logic goes here

@@ -105,10 +105,10 @@ class TwitterParser(BaseParser):
             launch_args = ['--ignore-certificate-errors']
             if PROXY:
                 launch_args.insert(0, f'--proxy-server={PROXY}')
-            browser = await launch({
-                'args': launch_args,
-                'headless': False
-            })
+            browser = await asyncio.wait_for(
+                launch({'args': launch_args, 'headless': False}),
+                timeout=30.0
+            )
 
             try:
                 page = await browser.newPage()
@@ -122,11 +122,11 @@ class TwitterParser(BaseParser):
                 response_data = None
                 last_error = None
                 for attempt in range(1, _MAX_RETRIES + 1):
+                    goto_task = None
                     try:
-                        response, _ = await asyncio.gather(
-                            page.waitForResponse(response_filter, timeout=_NAVIGATE_TIMEOUT),
-                            page.goto(url)
-                        )
+                        # Run goto as a background task so we can cancel it on failure/success
+                        goto_task = asyncio.ensure_future(page.goto(url))
+                        response = await page.waitForResponse(response_filter, timeout=_NAVIGATE_TIMEOUT)
                         response_data = await response.json()
                         break
                     except Exception as e:
@@ -138,6 +138,14 @@ class TwitterParser(BaseParser):
                             await asyncio.sleep(2)
                         else:
                             logging.error(f"All {_MAX_RETRIES} attempts failed for {url}")
+                    finally:
+                        # Always cancel the goto task once we no longer need it
+                        if goto_task is not None and not goto_task.done():
+                            goto_task.cancel()
+                            try:
+                                await goto_task
+                            except (asyncio.CancelledError, Exception):
+                                pass
 
                 if response_data is None:
                     raise last_error
@@ -145,11 +153,11 @@ class TwitterParser(BaseParser):
                 print(f"parsed {url}")
             finally:
                 try:
-                    await page.close()
+                    await asyncio.wait_for(page.close(), timeout=5.0)
                 except Exception:
                     pass
                 try:
-                    await browser.close()
+                    await asyncio.wait_for(browser.close(), timeout=5.0)
                 except Exception:
                     pass
 
